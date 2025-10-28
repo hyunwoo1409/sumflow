@@ -21,7 +21,8 @@ import {
  * - setCollapsed(fn)
  * - isLoggedIn: boolean
  * - userNickname: string
- * - onLogout(): void
+ * - isAdmin: boolean | number | string   // 관리자면 1도 올 수 있음
+ * - onLogout(): void                     // 부모 쪽에서 실제 로그아웃 처리+alert
  */
 export default function Sidebar({
   activeTab,
@@ -33,36 +34,60 @@ export default function Sidebar({
   setCollapsed,
   isLoggedIn = false,
   userNickname = "사용자",
+  isAdmin = false,
   onLogout,
 }) {
   const navigate = useNavigate();
 
-  // 카테고리 필터링 (불필요한 문자열 제외)
+  // DB에서 1, "1", true, "true" 등으로 와도 전부 true로 인식
+  const isAdminBool =
+    isAdmin === 1 ||
+    isAdmin === "1" ||
+    isAdmin === true ||
+    isAdmin === "true";
+
+  // 카테고리 정제 로직
   const pureCats = useMemo(() => {
     const isCategoryLike = (s) => {
       if (!s || typeof s !== "string") return false;
       const t = s.trim();
+
+      // 괄호/브라켓 들어간 태그 제거 (ex. "경제(요약)")
       if (/[[(\]]/.test(t)) return false;
+
+      // 년도같은 숫자 덩어리만 있는 문자열 제거 (ex. "20241027")
       if (/\d{4,}/.test(t)) return false;
+
+      // 파일명처럼 보이면 제거
       if (/\.(pdf|hwp|hwpx|docx?)$/i.test(t)) return false;
+
+      // URL류 제거
       if (/https?:\/\//i.test(t)) return false;
+
+      // 너무 긴 건 제거
       if (t.length > 24) return false;
+
       return true;
     };
-    return Array.from(new Set(categories.filter(isCategoryLike))).slice(0, 30);
+
+    // 중복 제거 후 최대 30개
+    return Array.from(new Set(categories.filter(isCategoryLike))).slice(
+      0,
+      30
+    );
   }, [categories]);
 
-  // 로그아웃 처리
-  const handleLogout = () => {
+  // 로그아웃 버튼 눌렀을 때: 여기서는 부모 콜백만 호출
+  const handleLogoutClick = () => {
     onLogout?.();
-    navigate("/");
   };
 
   const navBtnBase =
     "grid grid-cols-[28px_1fr] items-center gap-2 w-full text-left rounded-xl border border-transparent px-3 py-2 text-[14px] font-medium cursor-pointer transition-colors";
   const navBtnActive =
     "bg-[rgba(110,168,254,0.15)] border-[rgba(110,168,254,0.4)] text-gray-900";
-  const navBtnHover = "hover:bg-gray-100 hover:text-gray-900 text-gray-700";
+  const navBtnHover =
+    "hover:bg-gray-100 hover:text-gray-900 text-gray-700";
 
   return (
     <aside
@@ -82,7 +107,7 @@ export default function Sidebar({
       >
         {!collapsed && (
           <>
-            {/* 로고 */}
+            {/* 로고 클릭 => 홈으로 */}
             <div
               className="flex items-center gap-2 cursor-pointer"
               onClick={() => {
@@ -127,7 +152,10 @@ export default function Sidebar({
       <nav className="grid gap-2">
         {/* 홈 */}
         <button
-          onClick={() => setActiveTab("home")}
+          onClick={() => {
+            setActiveTab("home");
+            navigate("/");
+          }}
           className={`${navBtnBase} ${
             activeTab === "home" ? navBtnActive : navBtnHover
           }`}
@@ -139,7 +167,10 @@ export default function Sidebar({
 
         {/* 마이페이지 */}
         <button
-          onClick={() => setActiveTab("mypage")}
+          onClick={() => {
+            setActiveTab("mypage");
+            navigate("/");
+          }}
           className={`${navBtnBase} ${
             activeTab === "mypage" ? navBtnActive : navBtnHover
           }`}
@@ -149,17 +180,22 @@ export default function Sidebar({
           {!collapsed && <span>마이페이지</span>}
         </button>
 
-        {/* 관리자 페이지 */}
-        <button
-          onClick={() => navigate("/admin")}
-          className={`${navBtnBase} ${
-            activeTab === "admin" ? navBtnActive : navBtnHover
-          }`}
-          title="관리자 페이지"
-        >
-          <Settings size={20} />
-          {!collapsed && <span>관리자 페이지</span>}
-        </button>
+        {/* 관리자 페이지 (관리자한테만 노출) */}
+        {isAdminBool && (
+          <button
+            onClick={() => {
+              setActiveTab("admin");
+              navigate("/admin");
+            }}
+            className={`${navBtnBase} ${
+              activeTab === "admin" ? navBtnActive : navBtnHover
+            }`}
+            title="관리자 페이지"
+          >
+            <Settings size={20} />
+            {!collapsed && <span>관리자 페이지</span>}
+          </button>
+        )}
       </nav>
 
       {/* 최근 카테고리 */}
@@ -170,6 +206,7 @@ export default function Sidebar({
               최근 카테고리
             </div>
           )}
+
           <div
             className={`flex flex-wrap gap-1.5 ${
               collapsed ? "justify-center" : ""
@@ -181,6 +218,7 @@ export default function Sidebar({
                 onClick={() => {
                   setActiveTab("mypage");
                   toggleCat(c);
+                  navigate("/");
                 }}
                 title={c}
                 className={`rounded-lg border text-[11px] font-medium leading-none px-2 py-1
@@ -189,7 +227,11 @@ export default function Sidebar({
                       ? "bg-blue-100 border-blue-300 text-blue-700"
                       : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
                   }
-                  ${collapsed ? "w-8 h-8 flex items-center justify-center px-0" : ""}
+                  ${
+                    collapsed
+                      ? "w-8 h-8 flex items-center justify-center px-0"
+                      : ""
+                  }
                 `}
               >
                 {collapsed ? c.slice(0, 2) : c}
@@ -199,9 +241,10 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* 하단 로그인/프로필 */}
+      {/* 하단 로그인 / 프로필 / 로그아웃 */}
       <div className="mt-auto pt-4">
         {!isLoggedIn ? (
+          // 로그인 버튼
           <button
             onClick={() => navigate("/member/login")}
             title="로그인"
@@ -211,18 +254,21 @@ export default function Sidebar({
             {!collapsed && <span>로그인</span>}
           </button>
         ) : (
+          // 프로필 + 로그아웃
           <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-3 text-[13px] text-gray-900 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
+              {/* 프로필 아바타 (이니셜) */}
               <div className="w-9 h-9 rounded-lg bg-gray-200 text-gray-800 flex items-center justify-center text-sm font-bold">
                 {userNickname?.slice(0, 2) || "유저"}
               </div>
+
               {!collapsed && (
                 <div>
                   <div className="font-semibold truncate text-[13px] text-gray-900">
                     {userNickname}
                   </div>
                   <div className="text-[11px] text-gray-500 leading-tight">
-                    일반 사용자
+                    {isAdminBool ? "관리자" : "일반 사용자"}
                   </div>
                 </div>
               )}
@@ -230,7 +276,7 @@ export default function Sidebar({
 
             {!collapsed && (
               <button
-                onClick={handleLogout}
+                onClick={handleLogoutClick}
                 className="px-3 py-2 rounded-lg text-white text-sm font-semibold bg-gradient-to-r from-[#FF54A1] to-[#B862FF] hover:opacity-90 flex items-center justify-center gap-1"
               >
                 <LogOut size={15} />

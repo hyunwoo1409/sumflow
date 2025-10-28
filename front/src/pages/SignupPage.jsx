@@ -26,27 +26,31 @@ export default function SignupPage() {
     addr2: "",
   });
 
-  // ✅ 백엔드 CAPTCHA 상태
+  // 백엔드 CAPTCHA 상태
   const [captchaId, setCaptchaId] = useState("");
   const [captchaImage, setCaptchaImage] = useState("");
   const [captchaInput, setCaptchaInput] = useState("");
 
+  // 이메일 인증 관련 상태
   const [authTimer, setAuthTimer] = useState({ min: 0, sec: 0 });
-  const [authEmail, setAuthEmail] = useState("");
+  const [authEmail, setAuthEmail] = useState(""); // 인증번호를 보낸 이메일
   const timerRef = useRef(null);
 
+  // 경고/메시지 상태
   const [nickWarn, setNickWarn] = useState("");
   const [phoneWarn, setPhoneWarn] = useState("");
 
+  // 각 필드 유효성 상태
   const [valid, setValid] = useState({
     id: false,
     pw: false,
     pwConfirm: false,
     birth: false,
     email: false,
-    emailAuth: false,
+    emailAuth: false, // 이메일 인증 최종 통과 여부
   });
 
+  // 화면에 보여줄 안내 메시지
   const [msg, setMsg] = useState({
     id: "",
     pw: "",
@@ -57,7 +61,7 @@ export default function SignupPage() {
 
   const refDetailAddr = useRef(null);
 
-  // ✅ 초기 로드 (백엔드 CAPTCHA + 주소 검색)
+  // 최초 로드: 캡차 요청 + 다음 우편번호 스크립트 로드 + 타이머 정리
   useEffect(() => {
     fetchCaptcha();
 
@@ -78,7 +82,7 @@ export default function SignupPage() {
     };
   }, []);
 
-  // ✅ CAPTCHA 불러오기
+  //  CAPTCHA 불러오기
   const fetchCaptcha = async () => {
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/captcha`);
@@ -92,12 +96,14 @@ export default function SignupPage() {
     }
   };
 
+  // 폼 상태 업데이트 헬퍼
   const update = (key, value) =>
     setForm((prev) => ({
       ...prev,
       [key]: value,
     }));
 
+  // ===== 유효성 검사 함수들 =====
   const validateId = (v) => /^[A-Za-z0-9]{6,16}$/.test(v);
   const validatePw = (v) =>
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,16}$/.test(v);
@@ -107,6 +113,7 @@ export default function SignupPage() {
   const validateNick = (v) => /^[A-Za-z0-9가-힣]{3,8}$/.test(v);
   const validatePhone = (v) => /^[0-9]{9,11}$/.test(v);
 
+  // ===== 각 입력 핸들러 =====
   const handleIdChange = async (v) => {
     update("loginId", v);
 
@@ -135,7 +142,7 @@ export default function SignupPage() {
     update("password", v);
 
     if (!validatePw(v)) {
-      setMsg((m) => ({ ...m, pw: "대문자/소문자/특수문자 하나씩포함 8~16자" }));
+      setMsg((m) => ({ ...m, pw: "대문자/소문자/특수문자 하나씩 포함 8~16자" }));
       setValid((vd) => ({ ...vd, pw: false }));
     } else {
       setMsg((m) => ({ ...m, pw: "사용 가능한 비밀번호입니다." }));
@@ -174,8 +181,14 @@ export default function SignupPage() {
       setValid((vd) => ({ ...vd, birth: false }));
     }
   };
+
   const handleEmailChange = async (v) => {
     update("email", v);
+
+    // 이메일 타이핑 중에 이전 인증은 무효 처리
+    // (다른 이메일로 바꾸면 다시 인증 받아야 하니까)
+    setValid((vd) => ({ ...vd, emailAuth: false }));
+    setAuthEmail("");
 
     const baseEmailOk = /^[A-Za-z\d-_]{4,}@\w+(\.\w+){1,3}$/.test(v);
     if (!baseEmailOk) {
@@ -202,6 +215,7 @@ export default function SignupPage() {
     }
   };
 
+  // ===== 이메일 인증번호 전송 =====
   const handleSendAuthCode = async () => {
     if (!valid.email) {
       alert("올바른 이메일을 먼저 입력해주세요.");
@@ -209,59 +223,79 @@ export default function SignupPage() {
     }
 
     try {
+      // 백엔드: POST /api/v1/user/email/send-code
       await sendEmailCode(form.email);
+
       alert("인증번호가 발송되었습니다.");
 
+      // 이 이메일 기준으로만 인증 허용
       setAuthEmail(form.email);
-      setValid((vd) => ({ ...vd, emailAuth: false }));
-      setAuthTimer({ min: 9, sec: 59 });
 
+      // 아직 인증 완료 전
+      setValid((vd) => ({ ...vd, emailAuth: false }));
+
+      // 타이머 9분59초 시작
+      setAuthTimer({ min: 9, sec: 59 });
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = setInterval(() => {
         setAuthTimer((t) => {
+          // 이미 만료면 그대로
           if (t.min === 0 && t.sec === 0) {
             clearInterval(timerRef.current);
             return t;
           }
+          // 초 0이면 분 하나 깎고 59초로
           if (t.sec === 0) {
             return { min: t.min - 1, sec: 59 };
           }
+          // 기본적으로 초만 -1
           return { ...t, sec: t.sec - 1 };
         });
       }, 1000);
-    } catch {
+    } catch (err) {
+      console.error(err);
       alert("인증번호 전송 중 오류가 발생했습니다.");
     }
   };
 
+  // ===== 인증번호 확인 =====
   const handleCheckAuthCode = async () => {
     if (!form.authKey.trim()) {
       alert("인증번호를 입력하세요.");
       return;
     }
 
+    // 타이머 만료되면 거절
     if (authTimer.min === 0 && authTimer.sec === 0) {
       alert("인증 시간이 만료되었습니다. 다시 시도해주세요.");
       return;
     }
 
     try {
-      const result = 1234
-      // const result = await verifyEmailCode({
-      //   inputKey: form.authKey,
-      //   email: authEmail,
-      // });
+      // 백엔드: POST /api/v1/user/email/verify-code
+      // 기대 응답: { success: true }
+      const result = await verifyEmailCode({
+        inputKey: form.authKey,
+        email: authEmail,
+      });
 
-      if (Number(result) > 0) {
+      if (result?.success) {
+        // 인증 성공
         clearInterval(timerRef.current);
         setValid((vd) => ({ ...vd, emailAuth: true }));
         setMsg((m) => ({ ...m, auth: "인증되었습니다." }));
       } else {
+        // success가 false거나 예상과 다르면 실패 처리
         setValid((vd) => ({ ...vd, emailAuth: false }));
         setMsg((m) => ({ ...m, auth: "인증번호가 올바르지 않습니다." }));
       }
-    } catch {
-      alert("인증 확인 중 오류가 발생했습니다.");
+    } catch (err) {
+      console.error(err);
+      setValid((vd) => ({ ...vd, emailAuth: false }));
+      setMsg((m) => ({
+        ...m,
+        auth: err.message || "인증 확인 중 오류가 발생했습니다.",
+      }));
     }
   };
 
@@ -318,6 +352,7 @@ export default function SignupPage() {
     }).open();
   };
 
+  // ===== 최종 회원가입 제출 =====
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -354,11 +389,14 @@ export default function SignupPage() {
     };
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/user/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/v1/user/signup`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "회원가입 실패");
@@ -371,12 +409,15 @@ export default function SignupPage() {
     }
   };
 
+  // 남은 시간 표시 텍스트
   const timeText =
     authTimer.min + authTimer.sec > 0 && !valid.emailAuth
       ? `${String(authTimer.min).padStart(2, "0")}:${String(
           authTimer.sec
         ).padStart(2, "0")}`
       : "";
+
+  // ===== 실제 렌더 =====
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 py-8">
       <img
@@ -610,7 +651,7 @@ export default function SignupPage() {
           />
         </div>
 
-        {/* ✅ 백엔드 보안문자 */}
+        {/* 백엔드 보안문자 */}
         <div>
           <label className="text-sm font-medium text-pink-500">
             보안문자
@@ -654,8 +695,7 @@ export default function SignupPage() {
           type="submit"
           className="mt-2 w-full h-12 rounded-xl text-white text-base font-medium shadow-[0_0_15px_rgba(255,84,161,0.5)]"
           style={{
-            backgroundImage:
-              "linear-gradient(to right, #FF54A1, #B862FF)",
+            backgroundImage: "linear-gradient(to right, #FF54A1, #B862FF)",
           }}
         >
           회원 가입 하기

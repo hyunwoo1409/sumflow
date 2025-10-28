@@ -46,9 +46,10 @@ function inferDefaultTitle(filename) {
 export default function UploadPage() {
   const navigate = useNavigate();
 
-  // ✅ 로그인 상태
+  //  로그인 상태
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [nickname, setNickname] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // 첫 로드 시 localStorage에서 로그인 정보 복원
   useEffect(() => {
@@ -58,18 +59,39 @@ export default function UploadPage() {
     if (token && (user?.name || user?.nickname)) {
       setIsLoggedIn(true);
       setNickname(user.nickname || user.name || "");
+
+      // 백에서 "1", 1, true, "true" 같은게 와도 전부 true로
+      const rawAdmin =
+        user.isAdmin ?? user.IS_ADMIN ?? user.is_admin ?? user.admin ?? 0;
+
+      const normalizedIsAdmin =
+        rawAdmin === 1 ||
+        rawAdmin === "1" ||
+        rawAdmin === true ||
+        rawAdmin === "true";
+
+      setIsAdmin(normalizedIsAdmin);
     } else {
       setIsLoggedIn(false);
       setNickname("");
+      setIsAdmin(false);
     }
   }, []);
 
   // 로그아웃
   const handleLogout = () => {
+    // 토큰/유저 삭제
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+
+    // 상태 초기화
     setIsLoggedIn(false);
     setNickname("");
+
+    //  로그아웃 알림
+    alert("로그아웃 되었습니다.");
+
+    // 로그인 화면으로 이동
     navigate("/member/login");
   };
 
@@ -442,6 +464,7 @@ export default function UploadPage() {
         setCollapsed={setSidebarCollapsed}
         isLoggedIn={isLoggedIn}
         userNickname={nickname || "사용자"}
+        isAdmin={isAdmin}
         onLogout={handleLogout}
       />
 

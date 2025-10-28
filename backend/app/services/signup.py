@@ -1,16 +1,16 @@
-# backend/user/signup.py
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.models.user_model import AppUser
 from app.services.capcha import captcha_store
+from app.services.email_verify import assert_email_verified  
 import time, bcrypt
 from datetime import datetime
 
 router = APIRouter(prefix="/api/v1/user", tags=["User"])
 
-# ✅ 1️⃣ 입력 데이터 모델 (DB 매핑에 맞게 확장)
+
 class SignupRequest(BaseModel):
     login_id: str
     password: str
@@ -28,12 +28,9 @@ class SignupRequest(BaseModel):
     is_admin: bool | None = False
 
 
-# ✅ 2️⃣ 회원가입 엔드포인트
 @router.post("/signup")
 def signup_user(data: SignupRequest, db: Session = Depends(get_db)):
-    # ---------------------------
-    # CAPTCHA 검증
-    # ---------------------------
+    # 1) CAPTCHA 검증
     captcha_record = captcha_store.get(data.captcha_id)
     if not captcha_record:
         raise HTTPException(status_code=400, detail="Captcha expired or invalid")
@@ -48,9 +45,7 @@ def signup_user(data: SignupRequest, db: Session = Depends(get_db)):
 
     del captcha_store[data.captcha_id]
 
-    # ---------------------------
-    # 중복 검사
-    # ---------------------------
+    # 2) 이미 가입된 아이디/이메일 여부 확인
     existing_user = (
         db.query(AppUser)
         .filter(
@@ -59,18 +54,20 @@ def signup_user(data: SignupRequest, db: Session = Depends(get_db)):
         )
         .first()
     )
-
     if existing_user:
         raise HTTPException(status_code=400, detail="ID or Email already exists")
 
-    # ---------------------------
-    # 비밀번호 해시
-    # ---------------------------
-    hashed_pw = bcrypt.hashpw(data.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    # ✅ 3) 이메일 인증 성공 여부 확인
+    # 여기서 이메일이 "REGISTER" 용도로 verify-code 성공된 상태인지 확인
+    assert_email_verified(db, data.email, "REGISTER")
 
-    # ---------------------------
-    # 생년월일 변환 (YYYYMMDD → date)
-    # ---------------------------
+    # 4) 비밀번호 해시
+    hashed_pw = bcrypt.hashpw(
+        data.password.encode("utf-8"),
+        bcrypt.gensalt()
+    ).decode("utf-8")
+
+    # 5) 생년월일 파싱 (YYYYMMDD -> date)
     birth_date = None
     if data.birth:
         try:
@@ -78,9 +75,7 @@ def signup_user(data: SignupRequest, db: Session = Depends(get_db)):
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid birth date format (YYYYMMDD)")
 
-    # ---------------------------
-    # 사용자 객체 생성
-    # ---------------------------
+    # 6) 유저 생성
     new_user = AppUser(
         LOGIN_ID=data.login_id,
         PASSWORD_HASH=hashed_pw,
@@ -94,7 +89,7 @@ def signup_user(data: SignupRequest, db: Session = Depends(get_db)):
         BIRTH_DATE=birth_date,
         IS_ADMIN=data.is_admin or False,
         STATUS="ACTIVE",
-        IS_LOGGED_IN=False
+        IS_LOGGED_IN=False,
     )
 
     db.add(new_user)
@@ -105,5 +100,5 @@ def signup_user(data: SignupRequest, db: Session = Depends(get_db)):
         "success": True,
         "message": "회원가입 완료",
         "user_id": new_user.USER_ID,
-        "login_id": new_user.LOGIN_ID
+        "login_id": new_user.LOGIN_ID,
     }

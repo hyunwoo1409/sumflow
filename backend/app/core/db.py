@@ -1,5 +1,6 @@
 # backend/user/db.py
 import os
+from urllib.parse import quote_plus
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
@@ -13,8 +14,9 @@ load_dotenv()  # .env 파일의 환경 변수 로드
 # 2️⃣ 환경 변수에서 DB 정보 읽기
 #    (없으면 기본값으로 localhost 사용)
 # ----------------------------------------
-DB_USER = os.getenv("DB_USER", "mainuser")
-DB_PASS = os.getenv("DB_PASS", "main1234")
+DB_USER = os.getenv("DB_USER", "root")
+DB_PASS_RAW = os.getenv("DB_PASS", "MySql@1234")
+DB_PASS = quote_plus(DB_PASS_RAW)
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "3306")
 DB_NAME = os.getenv("DB_NAME", "sumflow")

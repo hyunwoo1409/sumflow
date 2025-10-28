@@ -284,8 +284,12 @@ from app.services.capcha import router as captcha_router
 from app.services.signup import router as signup_router
 from app.services.login import router as login_router
 from app.routers.admin_router import router as admin_router
+from app.routers.user_check_router import router as user_check_router
+from app.routers.email_verify_router import router as email_verify_router
 
 app.include_router(captcha_router)
 app.include_router(signup_router)
 app.include_router(login_router)
 app.include_router(admin_router)
+app.include_router(user_check_router)
+app.include_router(email_verify_router)

@@ -84,5 +84,7 @@ def login_user(data: LoginRequest, db: Session = Depends(get_db)):
             "login_id": user.LOGIN_ID,
             "email": user.EMAIL,
             "name": user.NAME,
+            "nickname": user.NICKNAME,
+            "IS_ADMIN": user.IS_ADMIN,
         },
     }

@@ -6,19 +6,13 @@ from sqlalchemy import (
     Text,
     Enum,
     ForeignKey,
-    BigInteger as BigIntCol,
     func,
 )
+from sqlalchemy.dialects.mysql import DATETIME, BIGINT
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.mysql import DATETIME
-from ..core.db import Base
-
+from app.core.db import Base
 
 class Document(Base):
-    """
-    DOCUMENT 테이블 매핑
-    """
-
     __tablename__ = "DOCUMENT"
 
     DOCUMENT_ID = Column(
@@ -30,7 +24,10 @@ class Document(Base):
 
     OWNER_USER_ID = Column(
         BigInteger().with_variant(Integer, "sqlite"),
-        ForeignKey("APP_USER.USER_ID", ondelete="RESTRICT"),
+        ForeignKey(
+            "APP_USER.USER_ID",
+            ondelete="RESTRICT",  # DDL과 맞춤
+        ),
         nullable=False,
         comment="문서 소유자 ID",
     )
@@ -40,6 +37,8 @@ class Document(Base):
 
     CATEGORY_NAME = Column(String(100), nullable=True, comment="문서 카테고리")
     TITLE = Column(String(500), nullable=True, comment="문서 제목")
+
+    # DDL은 LONGTEXT -> Text 매핑 OK
     LLM_SUMMARY_TEXT = Column(Text, nullable=True, comment="요약 텍스트 (LLM 결과)")
 
     OCR_JSON_DIR_RELPATH = Column(String(1024), nullable=True, comment="OCR JSON 경로")
@@ -49,7 +48,11 @@ class Document(Base):
     MERGED_PDF_RELPATH = Column(String(1024), nullable=True, comment="병합 PDF 경로")
     RESULT_FOLDER_ID = Column(String(100), nullable=True, comment="결과 폴더 ID")
 
-    FILE_SIZE_BYTES = Column(BigIntCol, nullable=False, comment="파일 크기 (bytes)")
+    FILE_SIZE_BYTES = Column(
+        BigInteger,  # MySQL BIGINT UNSIGNED -> Python int로 충분. UNSIGNED는 SQLAlchemy에서 굳이 안 줘도 됨
+        nullable=False,
+        comment="파일 크기 (bytes)",
+    )
 
     PROC_STATUS = Column(
         Enum(
@@ -83,10 +86,10 @@ class Document(Base):
     DELETED_AT = Column(
         DATETIME(fsp=6),
         nullable=True,
+        server_default=None,
         comment="삭제 일시",
     )
 
-    # --------- 관계 ---------
     user = relationship(
         "AppUser",
         back_populates="documents",
@@ -95,4 +98,7 @@ class Document(Base):
     )
 
     def __repr__(self):
-        return f"<Document DOCUMENT_ID={self.DOCUMENT_ID} OWNER={self.OWNER_USER_ID} STATUS={self.PROC_STATUS}>"
+        return (
+            f"<Document DOCUMENT_ID={self.DOCUMENT_ID} "
+            f"OWNER={self.OWNER_USER_ID} STATUS={self.PROC_STATUS}>"
+        )
