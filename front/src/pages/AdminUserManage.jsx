@@ -4,18 +4,16 @@ export default function AdminUserManage() {
   // 검색 상태
   const [searchType, setSearchType] = useState("nickname"); // 'nickname' | 'email'
   const [keyword, setKeyword] = useState("");
-
-  // 실제 검색 실행된 키워드 (검색 버튼/엔터 시 반영)
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(""); // 실제로 적용된 검색어
 
   // 가입 상태 필터
   const [userFilter, setUserFilter] = useState("all"); // 'all' | 'active' | 'withdrawn'
 
-  // 현재 페이지 (1부터 시작)
+  // 페이지네이션
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 20; // 한 페이지에서 좌10+우10
+  const PAGE_SIZE = 20; // 한 페이지 최대 20명 (왼10 + 오른10)
 
-  // 나중에 실제로는 백엔드에서 최초 1회 받아오는 전체 목록
+  // 나중에 실제로는 백엔드에서 받아올 목록
   const allUsers = [
     { id: 1, nickname: "김현우", email: "makim9@kh.or.kr", status: "가입" },
     { id: 2, nickname: "최나연", email: "nkoim@kh.or.kr", status: "탈퇴" },
@@ -41,81 +39,67 @@ export default function AdminUserManage() {
     { id: 22, nickname: "한나율", email: "nayul@kh.or.kr", status: "가입" },
     { id: 23, nickname: "한나율", email: "nayul@kh.or.kr", status: "가입" },
     { id: 24, nickname: "한나율", email: "nayul@kh.or.kr", status: "가입" },
-    // 여기에 21, 22, ... 더 추가되면 페이지네이션 "다음"이 살아나.
   ];
 
-  // 1단계: 상태 필터 (전체/가입/탈퇴)
+  // 1) 가입 상태 필터 적용
   const filteredByStatus = useMemo(() => {
     return allUsers.filter((u) => {
       if (userFilter === "active") return u.status === "가입";
       if (userFilter === "withdrawn") return u.status === "탈퇴";
-      return true;
+      return true; // all
     });
   }, [allUsers, userFilter]);
 
-  // 2단계: 검색 필터 (닉네임 / 이메일)
+  // 2) 검색어 적용 (닉네임 / 이메일)
   const filtered = useMemo(() => {
     const kw = searchTerm.trim().toLowerCase();
     if (!kw) return filteredByStatus;
+
     return filteredByStatus.filter((u) => {
       if (searchType === "nickname") {
         return u.nickname.toLowerCase().includes(kw);
-      } else {
-        return u.email.toLowerCase().includes(kw);
       }
+      return u.email.toLowerCase().includes(kw);
     });
   }, [filteredByStatus, searchTerm, searchType]);
 
-  // 전체 페이지 수
-  const pageCount = Math.max(
-    1,
-    Math.ceil(filtered.length / PAGE_SIZE)
-  );
-
-  // 현재 페이지 범위 slice
+  // 페이지네이션 계산
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const startIdx = (page - 1) * PAGE_SIZE;
-  const currentPageSlice = filtered.slice(
-    startIdx,
-    startIdx + PAGE_SIZE
-  );
+  const currentPageSlice = filtered.slice(startIdx, startIdx + PAGE_SIZE);
 
-  // 좌우 테이블 분리 (최대 각각 10명)
   const leftCol = currentPageSlice.slice(0, 10);
   const rightCol = currentPageSlice.slice(10, 20);
 
-  // 검색 실행 함수 (버튼 or Enter)
+  // 검색 실행 (버튼/Enter)
   const handleSearch = () => {
-    setSearchTerm(keyword); // 입력된 keyword를 실제 검색어로 반영
-    setPage(1); // 검색 시 1페이지로 이동
+    setSearchTerm(keyword);
+    setPage(1);
   };
-
-  // Enter키 감지 핸들러
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
       handleSearch();
     }
   };
 
-  // 필터 변경 시 페이지 초기화
+  // 가입상태 필터 탭 클릭
   const handleStatusChange = (mode) => {
     setUserFilter(mode);
     setPage(1);
   };
 
-
   return (
-    <section className="max-w-[1100px] mx-auto text-[13px] text-black">
-      {/* 상단: 회원 관리 + 검색 */}
-      <div className="bg-white border border-gray-300 rounded-lg p-4 flex flex-col gap-4 mb-6 shadow-sm">
-        <div className="text-[15px] font-semibold text-gray-800">
+    <div className="text-[13px] text-gray-900">
+      {/* 검색 영역 */}
+      <section className="rounded-lg border border-gray-200 bg-gray-50 p-4 mb-6">
+        <div className="text-[14px] font-semibold text-gray-800 mb-4">
           회원 관리
         </div>
 
-        {/* 검색 박스 */}
-        <div className="bg-gray-50 border border-gray-300 rounded-lg p-3 flex flex-col gap-3">
+        <div className="rounded-lg border border-gray-300 bg-white p-3 flex flex-col gap-3 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-end gap-3">
             {/* 검색 기준 */}
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-[120px]">
               <label className="text-[12px] text-gray-600 mb-1">
                 검색 기준
               </label>
@@ -129,7 +113,7 @@ export default function AdminUserManage() {
               </select>
             </div>
 
-            {/* 검색어 */}
+            {/* 검색어 입력 */}
             <div className="flex-1 flex flex-col">
               <label className="text-[12px] text-gray-600 mb-1">
                 검색어
@@ -150,7 +134,7 @@ export default function AdminUserManage() {
             {/* 검색 버튼 */}
             <div className="flex flex-col">
               <label className="text-[12px] text-gray-600 mb-1 opacity-0 select-none">
-                버튼
+                검색
               </label>
               <button
                 onClick={handleSearch}
@@ -169,17 +153,17 @@ export default function AdminUserManage() {
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* 아래 카드: 필터/통계/리스트 */}
-      <div className="bg-white rounded-lg shadow-md border border-gray-300 p-4">
-        {/* 상단 라인: 고객 규모 + 상태 필터 */}
+      {/* 현황 + 리스트 */}
+      <section className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+        {/* 상단: 필터/현황 */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div className="text-[14px] font-semibold text-gray-800">
-            고객 규모(인원)
+            회원 현황 / 필터
           </div>
 
-          <div className="flex gap-2 text-[12px] font-medium">
+          <div className="flex flex-wrap gap-2 text-[12px] font-medium">
             <button
               onClick={() => handleStatusChange("all")}
               className={`
@@ -224,30 +208,30 @@ export default function AdminUserManage() {
           </div>
         </div>
 
-        {/* 수치 카드 */}
+        {/* 요약 수치 카드들 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 text-[12px] text-gray-800">
-          <div className="rounded-md border border-gray-300 bg-gray-50 p-3 flex flex-col">
+          <div className="rounded-md border border-gray-300 bg-white p-3 flex flex-col shadow-sm">
             <div className="text-[12px] text-gray-600">총 회원 수</div>
             <div className="text-[20px] font-bold text-gray-900 leading-none">
               {allUsers.length}
             </div>
           </div>
 
-          <div className="rounded-md border border-gray-300 bg-gray-50 p-3 flex flex-col">
+          <div className="rounded-md border border-gray-300 bg-white p-3 flex flex-col shadow-sm">
             <div className="text-[12px] text-gray-600">현재 회원 수</div>
             <div className="text-[20px] font-bold text-gray-900 leading-none">
               {allUsers.filter((u) => u.status === "가입").length}
             </div>
           </div>
 
-          <div className="rounded-md border border-gray-300 bg-gray-50 p-3 flex flex-col">
+          <div className="rounded-md border border-gray-300 bg-white p-3 flex flex-col shadow-sm">
             <div className="text-[12px] text-gray-600">탈퇴 회원 수</div>
             <div className="text-[20px] font-bold text-gray-900 leading-none">
               {allUsers.filter((u) => u.status === "탈퇴").length}
             </div>
           </div>
 
-          <div className="rounded-md border border-gray-300 bg-gray-50 p-3 flex flex-col">
+          <div className="rounded-md border border-gray-300 bg-white p-3 flex flex-col shadow-sm">
             <div className="text-[12px] text-gray-600">신규 가입 수</div>
             <div className="text-[20px] font-bold text-gray-900 leading-none">
               3
@@ -255,28 +239,28 @@ export default function AdminUserManage() {
           </div>
         </div>
 
-        {/* 회원 리스트 */}
+        {/* 회원 리스트 (좌/우 테이블) */}
         <div className="text-[12px] text-gray-800">
           <div className="font-medium mb-2 text-[13px] text-gray-900">
             회원 리스트 (최신등록순)
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* LEFT TABLE */}
-            <div className="overflow-x-auto border border-gray-400 rounded-md">
+            {/* 왼쪽 테이블 */}
+            <div className="overflow-x-auto border border-gray-400 rounded-md bg-white shadow-sm">
               <table className="w-full text-left text-[12px]">
                 <thead className="bg-[#efefef] border-b border-gray-400">
                   <tr>
-                    <th className="border-r border-gray-400 px-2 py-1">
+                    <th className="border-r border-gray-400 px-2 py-1 whitespace-nowrap">
                       회원 번호
                     </th>
-                    <th className="border-r border-gray-400 px-2 py-1">
+                    <th className="border-r border-gray-400 px-2 py-1 whitespace-nowrap">
                       닉네임
                     </th>
-                    <th className="border-r border-gray-400 px-2 py-1">
+                    <th className="border-r border-gray-400 px-2 py-1 whitespace-nowrap">
                       이메일
                     </th>
-                    <th className="px-2 py-1">상태</th>
+                    <th className="px-2 py-1 whitespace-nowrap">상태</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -305,25 +289,36 @@ export default function AdminUserManage() {
                       </td>
                     </tr>
                   ))}
+
+                  {leftCol.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="text-center text-gray-500 py-6 text-[12px]"
+                      >
+                        결과가 없습니다.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
-            {/* RIGHT TABLE */}
-            <div className="overflow-x-auto border border-gray-400 rounded-md">
+            {/* 오른쪽 테이블 */}
+            <div className="overflow-x-auto border border-gray-400 rounded-md bg-white shadow-sm">
               <table className="w-full text-left text-[12px]">
                 <thead className="bg-[#efefef] border-b border-gray-400">
                   <tr>
-                    <th className="border-r border-gray-400 px-2 py-1">
+                    <th className="border-r border-gray-400 px-2 py-1 whitespace-nowrap">
                       회원 번호
                     </th>
-                    <th className="border-r border-gray-400 px-2 py-1">
+                    <th className="border-r border-gray-400 px-2 py-1 whitespace-nowrap">
                       닉네임
                     </th>
-                    <th className="border-r border-gray-400 px-2 py-1">
+                    <th className="border-r border-gray-400 px-2 py-1 whitespace-nowrap">
                       이메일
                     </th>
-                    <th className="px-2 py-1">상태</th>
+                    <th className="px-2 py-1 whitespace-nowrap">상태</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -352,6 +347,17 @@ export default function AdminUserManage() {
                       </td>
                     </tr>
                   ))}
+
+                  {rightCol.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="text-center text-gray-500 py-6 text-[12px]"
+                      >
+                        결과가 없습니다.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -374,15 +380,13 @@ export default function AdminUserManage() {
             <button
               className="px-2 py-1 border border-gray-300 rounded bg-white hover:bg-gray-100 disabled:opacity-40"
               disabled={page >= pageCount}
-              onClick={() =>
-                setPage((p) => Math.min(pageCount, p + 1))
-              }
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
             >
               다음
             </button>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }

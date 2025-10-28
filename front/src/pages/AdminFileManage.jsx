@@ -1,22 +1,22 @@
 import React, { useState, useMemo } from "react";
 
 export default function AdminFileManage() {
-  // 검색 상태 (입력 중)
+  // ─────────────────────────
+  // 검색 상태
+  // ─────────────────────────
   const [searchType, setSearchType] = useState("nickname"); // 'nickname' | 'filename'
   const [keywordInput, setKeywordInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState(""); // 실제 적용된 검색어
 
-  // 실제 검색에 반영된 상태 (버튼/엔터 이후 적용)
-  const [searchTerm, setSearchTerm] = useState("");
-
-  // OCR 상태 필터 (상단 탭에서 바꿈) "" | "완료" | "에러"
+  // OCR 상태 필터: "" | "완료" | "에러"
   const [ocrFilter, setOcrFilter] = useState("");
 
   // 페이지네이션
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
-  // 파일 전체 목록 (백엔드에서 한 번 받아온다고 가정)
-  // status: "완료" | "에러" 
+  // 더미 데이터 (나중에 백엔드에서 받아올 목록)
+  // status: "완료" | "에러"
   const allFiles = [
     {
       id: 1,
@@ -133,15 +133,15 @@ export default function AdminFileManage() {
   const errorCount = allFiles.filter((f) => f.status === "에러").length;
   const doneCount = allFiles.filter((f) => f.status === "완료").length;
 
-  // 1단계: OCR 필터 적용 (ocrFilter가 ""이면 전체)
+  // OCR 상태 필터 적용
   const filteredByOcr = useMemo(() => {
     return allFiles.filter((f) => {
-      if (!ocrFilter) return true;
+      if (!ocrFilter) return true; // 전체
       return f.status === ocrFilter;
     });
   }, [allFiles, ocrFilter]);
 
-  // 2단계: 검색어 적용 (searchTerm 기준)
+  // 검색어 적용
   const filteredFiles = useMemo(() => {
     const kw = searchTerm.trim().toLowerCase();
     if (!kw) return filteredByOcr;
@@ -150,35 +150,28 @@ export default function AdminFileManage() {
       if (searchType === "nickname") {
         return f.nickname.toLowerCase().includes(kw);
       }
-      // searchType === 'filename'
+      // 검색 기준: 파일명
       return f.filename.toLowerCase().includes(kw);
     });
   }, [filteredByOcr, searchTerm, searchType]);
 
-  // 페이지네이션 계산
-  const pageCount = Math.max(
-    1,
-    Math.ceil(filteredFiles.length / PAGE_SIZE)
-  );
+  // 페이징
+  const pageCount = Math.max(1, Math.ceil(filteredFiles.length / PAGE_SIZE));
   const startIdx = (page - 1) * PAGE_SIZE;
-  const currentPageSlice = filteredFiles.slice(
-    startIdx,
-    startIdx + PAGE_SIZE
-  );
+  const currentPageSlice = filteredFiles.slice(startIdx, startIdx + PAGE_SIZE);
 
   // 검색 실행 (버튼 or Enter)
   const triggerSearch = () => {
     setSearchTerm(keywordInput);
     setPage(1);
   };
-
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
       triggerSearch();
     }
   };
 
-  // OCR 상태 필터 버튼 눌렀을 때
+  // OCR 상태 버튼
   const handleOcrFilter = (val) => {
     setOcrFilter(val); // "" | "완료" | "에러"
     setPage(1);
@@ -189,18 +182,18 @@ export default function AdminFileManage() {
   const goNext = () => setPage((p) => Math.min(pageCount, p + 1));
 
   return (
-    <section className="max-w-[1100px] mx-auto text-[13px] text-black">
-      {/* 상단 영역: 제목 + 검색 박스 */}
-      <div className="bg-white border border-gray-300 rounded-lg p-4 flex flex-col gap-4 mb-6 shadow-sm">
-        <div className="text-[15px] font-semibold text-gray-800">
+    <div className="text-[13px] text-gray-900">
+      {/* 검색 영역 */}
+      <section className="rounded-lg border border-gray-200 bg-gray-50 p-4 mb-6">
+        <div className="text-[14px] font-semibold text-gray-800 mb-4">
           업로드 파일 관리
         </div>
 
-        {/* 검색 박스: 회원관리 스타일과 통일 */}
-        <div className="bg-gray-50 border border-gray-300 rounded-lg p-3 flex flex-col gap-3">
+        {/* 검색 박스 */}
+        <div className="rounded-lg border border-gray-300 bg-white p-3 flex flex-col gap-3 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-            {/* 검색 기준 선택 (닉네임 / 파일명) */}
-            <div className="flex flex-col">
+            {/* 검색 기준 (닉네임 / 파일명) */}
+            <div className="flex flex-col min-w-[120px]">
               <label className="text-[12px] text-gray-600 mb-1">
                 검색 기준
               </label>
@@ -214,11 +207,9 @@ export default function AdminFileManage() {
               </select>
             </div>
 
-            {/* 검색어 입력 */}
+            {/* 검색어 */}
             <div className="flex-1 flex flex-col">
-              <label className="text-[12px] text-gray-600 mb-1">
-                검색어
-              </label>
+              <label className="text-[12px] text-gray-600 mb-1">검색어</label>
               <input
                 className="border border-gray-400 rounded px-2 py-1 text-[12px] outline-none"
                 placeholder={
@@ -234,8 +225,9 @@ export default function AdminFileManage() {
 
             {/* 검색 버튼 */}
             <div className="flex flex-col">
+              {/* label은 시각적으로 안 보이게만 남겨서 정렬 유지 */}
               <label className="text-[12px] text-gray-600 mb-1 opacity-0 select-none">
-                버튼
+                검색
               </label>
               <button
                 onClick={triggerSearch}
@@ -254,17 +246,16 @@ export default function AdminFileManage() {
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* 파일 규모 / 필터 / 리스트 */}
-      <div className="bg-white rounded-lg shadow-md border border-gray-300 p-4">
-        {/* 상단 타이틀 + OCR 상태 필터 버튼들 */}
+      {/* 요약 + OCR 상태 필터 + 리스트 */}
+      <section className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+        {/* 상단 영역: OCR 상태 필터 */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div className="text-[14px] font-semibold text-gray-800">
-            파일 규모
+            필터 / 요약
           </div>
 
-          {/* OCR 상태 필터: 전체 / 완료 / 에러 만 */}
           <div className="flex flex-wrap gap-2 text-[12px] font-medium">
             <button
               onClick={() => handleOcrFilter("")}
@@ -310,23 +301,23 @@ export default function AdminFileManage() {
           </div>
         </div>
 
-        {/* 요약 수치 영역 */}
+        {/* 요약 수치 카드들 */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6 text-[12px] text-gray-800">
-          <div className="rounded-md border border-gray-300 bg-gray-50 p-3 flex flex-col">
+          <div className="rounded-md border border-gray-300 bg-white p-3 flex flex-col shadow-sm">
             <div className="text-[12px] text-gray-600">등록 개수</div>
             <div className="text-[20px] font-bold text-gray-900 leading-none">
               {totalCount}
             </div>
           </div>
 
-          <div className="rounded-md border border-gray-300 bg-gray-50 p-3 flex flex-col">
+          <div className="rounded-md border border-gray-300 bg-white p-3 flex flex-col shadow-sm">
             <div className="text-[12px] text-gray-600">에러 수</div>
             <div className="text-[20px] font-bold text-red-600 leading-none">
               {errorCount}
             </div>
           </div>
 
-          <div className="rounded-md border border-gray-300 bg-gray-50 p-3 flex flex-col">
+          <div className="rounded-md border border-gray-300 bg-white p-3 flex flex-col shadow-sm">
             <div className="text-[12px] text-gray-600">완료 수</div>
             <div className="text-[20px] font-bold text-green-700 leading-none">
               {doneCount}
@@ -334,13 +325,13 @@ export default function AdminFileManage() {
           </div>
         </div>
 
-        {/* 파일 상세 리스트 */}
+        {/* 파일 상세 리스트 테이블 */}
         <div className="text-[12px]">
           <div className="font-medium mb-2 text-[13px] text-gray-900">
             파일 상세 리스트 (최신등록순)
           </div>
 
-          <div className="overflow-x-auto border border-gray-400 rounded-md">
+          <div className="overflow-x-auto border border-gray-400 rounded-md bg-white shadow-sm">
             <table className="w-full text-left text-[12px]">
               <thead className="bg-[#efefef] border-b border-gray-400">
                 <tr>
@@ -354,7 +345,7 @@ export default function AdminFileManage() {
                     파일 이름
                   </th>
                   <th className="border-r border-gray-400 px-2 py-1 whitespace-nowrap">
-                    업로드 일시
+                    업로드 날짜
                   </th>
                   <th className="border-r border-gray-400 px-2 py-1 whitespace-nowrap">
                     확장자
@@ -451,7 +442,7 @@ export default function AdminFileManage() {
             </button>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }

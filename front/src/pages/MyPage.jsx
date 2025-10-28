@@ -6,7 +6,7 @@ import {
   saveText,
   savePdf,
 } from "../utils/uploadHelpers";
-import { searchDocuments, getCategories } from "../services/api";
+import { searchDocuments, getCategories } from "../utils/api";
 
 const CLIENT_PAGING_THRESHOLD = 2000;
 const SERVER_MAX_PAGE_SIZE = 100;

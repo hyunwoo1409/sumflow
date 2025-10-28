@@ -6,7 +6,7 @@ import {
   checkDuplicateEmail,
   sendEmailCode,
   verifyEmailCode,
-} from "../services/signupApi.js";
+} from "../utils/signupApi.js";
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -98,7 +98,7 @@ export default function SignupPage() {
       [key]: value,
     }));
 
-  const validateId = (v) => /^[A-Za-z]{6,16}$/.test(v);
+  const validateId = (v) => /^[A-Za-z0-9]{6,16}$/.test(v);
   const validatePw = (v) =>
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,16}$/.test(v);
   const validateName = (v) => /^[가-힣]+$/.test(v);
@@ -111,7 +111,7 @@ export default function SignupPage() {
     update("loginId", v);
 
     if (!validateId(v)) {
-      setMsg((m) => ({ ...m, id: "영문 대/소문자 6~16자로 입력해주세요." }));
+      setMsg((m) => ({ ...m, id: "영문 대/소문자/숫자 6~16자로 입력해주세요." }));
       setValid((vd) => ({ ...vd, id: false }));
       return;
     }
@@ -135,7 +135,7 @@ export default function SignupPage() {
     update("password", v);
 
     if (!validatePw(v)) {
-      setMsg((m) => ({ ...m, pw: "대문자/소문자/특수문자 포함 8~16자" }));
+      setMsg((m) => ({ ...m, pw: "대문자/소문자/특수문자 하나씩포함 8~16자" }));
       setValid((vd) => ({ ...vd, pw: false }));
     } else {
       setMsg((m) => ({ ...m, pw: "사용 가능한 비밀번호입니다." }));

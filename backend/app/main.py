@@ -280,12 +280,12 @@ async def finalize_session(sid: str, is_zip: bool = Form(True)):
         return {"doc_id": doc_id, "pages": pages, "summary": summary}
     
 
-from app.services import capcha
-app.include_router(capcha.router)
+from app.services.capcha import router as captcha_router   
+from app.services.signup import router as signup_router
+from app.services.login import router as login_router
+from app.routers.admin_router import router as admin_router
 
-from app.services import signup
-app.include_router(signup.router)
-
-from app.services import login
-
-app.include_router(login.router)
+app.include_router(captcha_router)
+app.include_router(signup_router)
+app.include_router(login_router)
+app.include_router(admin_router)
