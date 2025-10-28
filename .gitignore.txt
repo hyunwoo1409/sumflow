@@ -1,0 +1,121 @@
+# ===============================
+#  🧠 Global ignores
+# ===============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+*.so
+*.db
+*.log
+*.sqlite3
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# VSCode / IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===============================
+#  🐍 Python / FastAPI backend
+# ===============================
+venv/
+.env
+.env.*
+*.env
+*.bak
+*.tmp
+*.old
+
+# pip / virtual environment
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+
+# MyPy / Pytest / Coverage
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.cache/
+.tox/
+nosetests.xml
+coverage.xml
+
+# ===============================
+#  🧩 Backend runtime data
+# ===============================
+backend/uploads/
+backend/results/
+backend/tmp/
+backend/app/__pycache__/
+backend/app/tests/__pycache__/
+backend/app/services/__pycache__/
+backend/app/utils/__pycache__/
+backend/app/core/__pycache__/
+backend/app/user/__pycache__/
+backend/app/workers/__pycache__/
+
+# Celery / Redis temp
+celerybeat-schedule
+celerybeat.pid
+*.pid
+
+# ===============================
+#  ⚛️ React / Frontend (Vite)
+# ===============================
+frontend/node_modules/
+frontend/.vite/
+frontend/.env
+frontend/.env.*
+frontend/dist/
+frontend/build/
+frontend/.DS_Store
+
+# npm / yarn / pnpm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===============================
+#  🐳 Docker / Scripts
+# ===============================
+docker-compose.override.yml
+docker-compose.local.yml
+*.local.yml
+*.log
+*.pid
+*.sock
+
+# ===============================
+#  🧪 Tests / Reports
+# ===============================
+reports/
+tests/__pycache__/
+*.pytest_cache/
+*.coverage
+*.spec
+
+# ===============================
+#  🧰 Other temp / generated files
+# ===============================
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+*.pdf
+*.csv
+*.xlsx
+*.json.tmp
+*.txt.tmp
+*.backup
+*.bak
