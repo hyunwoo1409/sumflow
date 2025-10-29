@@ -7,6 +7,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     func,
+    text,
 )
 from sqlalchemy.dialects.mysql import DATETIME, BIGINT
 from sqlalchemy.orm import relationship
@@ -49,22 +50,20 @@ class Document(Base):
     RESULT_FOLDER_ID = Column(String(100), nullable=True, comment="결과 폴더 ID")
 
     FILE_SIZE_BYTES = Column(
-        BigInteger,  # MySQL BIGINT UNSIGNED -> Python int로 충분. UNSIGNED는 SQLAlchemy에서 굳이 안 줘도 됨
+        BigInteger,  
         nullable=False,
         comment="파일 크기 (bytes)",
     )
 
     PROC_STATUS = Column(
         Enum(
-            "UPLOADED",
-            "OCR_DONE",
-            "SUMMARY_DONE",
+            "DONE",
             "FAILED",
             "DELETED",
-            name="proc_status_enum",
+            name="proc_status_enum", 
         ),
         nullable=False,
-        server_default="UPLOADED",
+        server_default=text("'DONE'"),  
         comment="문서 처리 상태",
     )
 
