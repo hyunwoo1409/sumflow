@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 
 import AdminSidebar from "../components/AdminSidebar";
 import AdminDashboardMain from "./AdminDashboardMain";
@@ -8,16 +7,6 @@ import AdminFileManage from "./AdminFileManage";
 
 export default function AdminPage() {
   const [activeMenu, setActiveMenu] = useState("dashboard"); // "dashboard" | "users" | "files"
-  const navigate = useNavigate();
-
-  //  간이 접근 제어 (나중에 실제 로그인/토큰/권한으로 교체)
-  // useEffect(() => {
-  //   const isAdmin = sessionStorage.getItem("isAdmin") === "true";
-  //   if (!isAdmin) {
-  //     alert("관리자만 접근 가능합니다.");
-  //     navigate("/");
-  //   }
-  // }, [navigate]);
 
   // 화면 상단에 보여줄 제목 매핑
   const pageTitle = useMemo(() => {

@@ -23,7 +23,7 @@ import {
   downloadAllResultsAsZip,
 } from "../utils/uploadHelpers";
 
-import { ocrFile } from "../utils/api"; 
+import { ocrFile } from "../utils/http.js";
 
 // 파일명에서 확장자 제거
 function stem(name = "") {
@@ -530,12 +530,7 @@ export default function UploadPage() {
 
         {activeTab === "mypage" && (
           <MyPage
-            currentUser={{
-              nickname: nickname || "사용자",
-              phone: "010-0000-0000",
-              email: "email@abc.com",
-              isAdmin: "True",
-            }}
+            currentUser={JSON.parse(localStorage.getItem("user") || "{}")}
             myItemsFromState={items.map((it) => ({
               id: it.id,
               filename: it.file?.name,

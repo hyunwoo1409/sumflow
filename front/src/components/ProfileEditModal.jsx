@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { updateMyProfile } from "../utils/mypageApi";
 
 export default function ProfileEditModal({ isOpen, onClose, user, onSave }) {
   const [form, setForm] = useState({
@@ -21,10 +22,33 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSave }) {
     setForm((prev) => ({ ...prev, [key]: val }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave(form);
-    onClose();
+    try {
+      // ✅ 빈 문자열("")인 필드는 아예 보내지 않음
+      const nonEmpty = Object.fromEntries(
+        Object.entries(form).filter(([_, v]) => String(v).trim() !== "")
+      );
+
+      const { success, user: updatedUser } = await updateMyProfile(nonEmpty);
+
+      if (success) {
+        // 부모(MyPage) state 갱신
+        onSave({
+          nickname: updatedUser.nickname,
+          phone: updatedUser.phone,
+          email: updatedUser.email,
+        });
+
+        alert("프로필이 수정되었습니다.");
+        onClose();
+      } else {
+        alert("프로필 수정에 실패했습니다.");
+      }
+    } catch (err) {
+      console.error("프로필 수정 오류:", err);
+      alert("서버와 통신 중 오류가 발생했습니다.");
+    }
   };
 
   if (!isOpen) return null;
@@ -46,7 +70,9 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSave }) {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* 닉네임 */}
           <div>
-            <label className="text-sm font-medium text-gray-700">닉네임</label>
+            <label className="text-sm font-medium text-gray-700">
+              닉네임
+            </label>
             <input
               type="text"
               value={form.nickname}
@@ -72,7 +98,9 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSave }) {
 
           {/* 이메일 */}
           <div>
-            <label className="text-sm font-medium text-gray-700">이메일</label>
+            <label className="text-sm font-medium text-gray-700">
+              이메일
+            </label>
             <input
               type="email"
               value={form.email}
@@ -82,7 +110,7 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSave }) {
             />
           </div>
 
-          {/* 버튼 */}
+          {/* 버튼 영역 */}
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"

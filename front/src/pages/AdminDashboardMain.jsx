@@ -15,7 +15,43 @@ import {
   Cell,
 } from "recharts";
 
-import { getAdminStatsSummary } from "../utils/api"; // 백엔드 통계 요약 API
+import { getAdminStatsSummary } from "../utils/adminApi";
+
+// 최근 N일 날짜 배열 만들어주는 헬퍼 (오늘 기준)
+function buildLastNDaysMap(n, valueKey) {
+  const arr = [];
+  const now = new Date();
+
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+
+    // "MM/DD" 형태로 포맷
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    arr.push({
+      day: `${mm}/${dd}`,
+      [valueKey]: 0,
+    });
+  }
+  return arr;
+}
+
+// 서버에서 온 rawStats를 위에서 만든 기본 7일 배열에 merge
+function mergeStats(baseArr, serverArr, valueKey) {
+  // serverArr: [{ day:"10/29", uploads: 9 }, ...] 이런 식
+  const map = {};
+  for (const row of serverArr || []) {
+    map[row.day] = row[valueKey] ?? 0;
+  }
+
+  return baseArr.map((base) => {
+    if (map[base.day] != null) {
+      return { ...base, [valueKey]: map[base.day] };
+    }
+    return base;
+  });
+}
 
 export default function AdminDashboardMain() {
   // 로딩 / 에러
@@ -27,32 +63,25 @@ export default function AdminDashboardMain() {
   const [newUsers30d, setNewUsers30d] = useState(0);
   const [withdraw30d, setWithdraw30d] = useState(0);
 
-  // 그래프 데이터
-  const [uploadStats, setUploadStats] = useState([]); // [{ day:"10/22", uploads:54 }, ...]
-  const [visitStats, setVisitStats] = useState([]);   // [{ day:"10/22", visits:190 }, ...]
+  // 그래프용 원본(서버)
+  const [uploadStatsRaw, setUploadStatsRaw] = useState([]);
+  const [visitStatsRaw, setVisitStatsRaw] = useState([]);
 
-  // 초기 데이터 로드
+  // 서버에서 데이터 로드
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         setErrMsg("");
 
-        // expected response:
-        // {
-        //   totalUsers: number,
-        //   newUsers30d: number,
-        //   withdraw30d: number,
-        //   dailyUploads7d: [{ day:"10/22", uploads:54 }, ...],
-        //   dailyVisits7d: [{ day:"10/22", visits:190 }, ...]
-        // }
         const data = await getAdminStatsSummary();
 
         setTotalUsers(data.totalUsers ?? 0);
         setNewUsers30d(data.newUsers30d ?? 0);
         setWithdraw30d(data.withdraw30d ?? 0);
-        setUploadStats(Array.isArray(data.dailyUploads7d) ? data.dailyUploads7d : []);
-        setVisitStats(Array.isArray(data.dailyVisits7d) ? data.dailyVisits7d : []);
+
+        setUploadStatsRaw(Array.isArray(data.dailyUploads7d) ? data.dailyUploads7d : []);
+        setVisitStatsRaw(Array.isArray(data.dailyVisits7d) ? data.dailyVisits7d : []);
       } catch (e) {
         console.error(e);
         setErrMsg("통계 데이터를 불러오지 못했습니다.");
@@ -62,7 +91,20 @@ export default function AdminDashboardMain() {
     })();
   }, []);
 
-  // 도넛 차트 데이터 계산
+  // 차트용 7일 보정 데이터
+  const uploadStats = useMemo(() => {
+    // 기본 7일 [{day:'MM/DD', uploads:0}, ...]
+    const base = buildLastNDaysMap(7, "uploads");
+    return mergeStats(base, uploadStatsRaw, "uploads");
+  }, [uploadStatsRaw]);
+
+  const visitStats = useMemo(() => {
+    // 기본 7일 [{day:'MM/DD', visits:0}, ...]
+    const base = buildLastNDaysMap(7, "visits");
+    return mergeStats(base, visitStatsRaw, "visits");
+  }, [visitStatsRaw]);
+
+  // 도넛 차트 데이터
   const pieData = useMemo(() => {
     const baseUsers = Math.max(totalUsers - newUsers30d - withdraw30d, 0);
     return [
@@ -74,6 +116,8 @@ export default function AdminDashboardMain() {
 
   // 도넛 색상 팔레트
   const PIE_COLORS = ["#C8C8C8", "#FF54A1", "#2d2385ff"];
+
+  // -------- UI 렌더링 --------
 
   // 로딩 상태
   if (loading) {
@@ -96,143 +140,165 @@ export default function AdminDashboardMain() {
     );
   }
 
-  // 본문 (정상)
+  // 정상 상태
   return (
-    <div className="text-[13px] text-gray-900">
-      {/* 1행: 회원 요약(도넛) + 업로드 차트 */}
-      <div className="flex flex-wrap gap-4">
-        {/* 회원 통계 카드 */}
-        <section className="w-full sm:w-[320px] flex-shrink-0 rounded-lg border border-gray-200 bg-gray-50 p-4">
-          {/* 타이틀 */}
-          <div className="text-[12px] mb-3 font-medium text-gray-800">
-            총 회원수 / 신규 가입 / 탈퇴 (최근 30일)
-          </div>
+    <div className="text-[13px] text-gray-900 space-y-4">
+      {/* 상단 타이틀 영역 */}
+      <header className="space-y-1">
+        <h2 className="text-[16px] font-semibold text-gray-800">
+          관리자 대시보드
+        </h2>
+        <p className="text-[12px] text-gray-500 leading-relaxed">
+          최근 7일 통계(방문/업로드)와 최근 30일 회원 현황(신규가입/탈퇴)을
+          확인할 수 있습니다.
+        </p>
+      </header>
 
-          {/* 숫자 영역 */}
-          <div className="flex justify-between mb-4 text-[12px]">
-            <div>
-              <div className="text-gray-600">총 회원수</div>
-              <div className="text-[20px] font-semibold text-gray-900 leading-tight">
-                {totalUsers.toLocaleString()}
+      {/* 메인 카드 래퍼 */}
+      <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm space-y-4">
+        {/* 1행: 회원 통계 + 업로드 차트 */}
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* 회원 통계 카드 */}
+          <div className="lg:w-[320px] w-full flex-shrink-0 rounded-md border border-gray-200 bg-gray-50 p-4">
+            {/* 카드 헤더 */}
+            <div className="flex items-start justify-between mb-3">
+              <div className="text-[12px] font-medium text-gray-800">
+                총 회원수 / 신규 가입 / 탈퇴
+                <span className="block text-[11px] text-gray-500 font-normal">
+                  (최근 30일)
+                </span>
               </div>
             </div>
 
-            <div className="text-right">
-              <div className="text-gray-600">신규 가입</div>
-              <div className="text-[16px] font-semibold text-pink-600 leading-tight">
-                +{newUsers30d}
+            {/* 숫자 영역 */}
+            <div className="flex justify-between mb-4 text-[12px]">
+              <div>
+                <div className="text-gray-600">총 회원수</div>
+                <div className="text-[20px] font-semibold text-gray-900 leading-tight">
+                  {totalUsers.toLocaleString()}
+                </div>
               </div>
 
-              <div className="text-gray-600 mt-2">탈퇴</div>
-              <div className="text-[13px] font-semibold text-gray-700 leading-tight">
-                {withdraw30d}
+              <div className="text-right">
+                <div className="text-gray-600">신규 가입</div>
+                <div className="text-[16px] font-semibold text-pink-600 leading-tight">
+                  +{newUsers30d}
+                </div>
+
+                <div className="text-gray-600 mt-2">탈퇴</div>
+                <div className="text-[13px] font-semibold text-gray-700 leading-tight">
+                  {withdraw30d}
+                </div>
               </div>
+            </div>
+
+            {/* 도넛 차트 */}
+            <div className="h-[170px]">
+              <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={65}
+                    paddingAngle={3}
+                  >
+                    {pieData.map((entry, idx) => (
+                      <Cell
+                        key={`cell-${idx}`}
+                        fill={PIE_COLORS[idx % PIE_COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v) => [`${v}명`, ""]} />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={25}
+                    wrapperStyle={{ paddingTop:"15px",fontSize: "11px" }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
-          {/* 도넛 차트 */}
-          <div className="h-[180px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={70}
-                  paddingAngle={3}
+          {/* 업로드 수 차트 카드 */}
+          <div className="flex-1 min-w-[280px] rounded-md border border-gray-200 bg-gray-50 p-4">
+            <div className="flex justify-between text-[12px] mb-2">
+              <span className="font-medium text-gray-800">업로드 수</span>
+              <span className="text-[11px] text-gray-500">최근 7일</span>
+            </div>
+
+            <div className="h-[280px] rounded-md border border-gray-300 bg-white p-2">
+              <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100} >
+                <BarChart
+                  data={uploadStats}
+                  margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+                  barCategoryGap="25%"
                 >
-                  {pieData.map((entry, idx) => (
-                    <Cell
-                      key={`cell-${idx}`}
-                      fill={PIE_COLORS[idx % PIE_COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(v /* value */) => [`${v}명`, ""]} // 커스텀 라벨
-                />
-                <Legend
-                  verticalAlign="bottom"
-                  height={30}
-                  wrapperStyle={{ fontSize: "11px" }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false}   />
+                  <Tooltip />
+                  <defs>
+                    <linearGradient id="colorUploads" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#FF54A1" />
+                      <stop offset="100%" stopColor="#B862FF" />
+                    </linearGradient>
+                  </defs>
+                  <Bar
+                    dataKey="uploads"
+                    radius={[4, 4, 0, 0]}
+                    fill="url(#colorUploads)"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </section>
+        </div>
 
-        {/* 업로드 수 차트 카드 */}
-        <section className="flex-1 min-w-[280px] rounded-lg border border-gray-200 bg-gray-50 p-4">
+        {/* 2행: 방문자(접속자 수) 라인 차트 */}
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
           <div className="flex justify-between text-[12px] mb-2">
-            <span className="font-medium text-gray-800">업로드 수</span>
-            <span className="text-[11px] text-gray-700">최근 7일</span>
+            <span className="font-medium text-gray-800">접속자 수</span>
+            <span className="text-[11px] text-gray-500">최근 7일</span>
           </div>
 
-          <div className="h-[280px] rounded-md border border-gray-300 bg-white p-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={uploadStats}
-                margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-                barCategoryGap="20%"
+          <div className="h-[200px] rounded-md border border-gray-300 bg-white p-3">
+            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
+              <LineChart
+                data={visitStats}
+                margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                 <Tooltip />
-                <defs>
-                  <linearGradient id="colorUploads" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FF54A1" />
-                    <stop offset="100%" stopColor="#B862FF" />
-                  </linearGradient>
-                </defs>
-                <Bar
-                  dataKey="uploads"
-                  radius={[4, 4, 0, 0]}
-                  fill="url(#colorUploads)"
+                <Line
+                  type="monotone"
+                  dataKey="visits"
+                  stroke="#FF54A1"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
                 />
-              </BarChart>
+              </LineChart>
             </ResponsiveContainer>
           </div>
-        </section>
-      </div>
-
-      {/* 2행: 방문(접속자 수) 라인차트 */}
-      <section className="rounded-lg border border-gray-200 bg-gray-50 p-4 mt-4">
-        <div className="flex justify-between text-[12px] mb-2">
-          <span className="font-medium text-gray-800">접속자 수</span>
-          <span className="text-[11px] text-gray-700">최근 7일</span>
         </div>
 
-        <div className="h-[220px] rounded-md border border-gray-300 bg-white p-3">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={visitStats}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="visits"
-                stroke="#FF54A1"
-                strokeWidth={2}
-                dot={{ r: 3 }}
-                activeDot={{ r: 5 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {/* 푸터 안내 */}
+        <footer className="text-center pt-2 border-t border-gray-200">
+          <p className="text-[11px] text-gray-500 leading-relaxed">
+            ※ 이 대시보드는 관리자 전용입니다.
+            <br />
+            Oracle DB 기준으로 최근 7일 업로드 / 방문 수,
+            최근 30일 신규 가입 / 탈퇴 현황을 요약해 보여줍니다.
+          </p>
+        </footer>
       </section>
-
-      {/* 하단 안내 */}
-      <p className="text-[11px] text-gray-500 mt-6 text-center leading-relaxed">
-        ※ 이 대시보드는 관리자 전용입니다.
-        <br />
-        Oracle DB 기준으로 최근 7일 업로드 / 방문 수, 최근 30일 신규 가입 / 탈퇴
-        현황을 요약해 보여줍니다.
-      </p>
     </div>
   );
 }
