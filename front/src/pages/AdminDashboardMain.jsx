@@ -143,17 +143,6 @@ export default function AdminDashboardMain() {
   // 정상 상태
   return (
     <div className="text-[13px] text-gray-900 space-y-4">
-      {/* 상단 타이틀 영역 */}
-      <header className="space-y-1">
-        <h2 className="text-[16px] font-semibold text-gray-800">
-          관리자 대시보드
-        </h2>
-        <p className="text-[12px] text-gray-500 leading-relaxed">
-          최근 7일 통계(방문/업로드)와 최근 30일 회원 현황(신규가입/탈퇴)을
-          확인할 수 있습니다.
-        </p>
-      </header>
-
       {/* 메인 카드 래퍼 */}
       <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm space-y-4">
         {/* 1행: 회원 통계 + 업로드 차트 */}
@@ -289,15 +278,7 @@ export default function AdminDashboardMain() {
           </div>
         </div>
 
-        {/* 푸터 안내 */}
-        <footer className="text-center pt-2 border-t border-gray-200">
-          <p className="text-[11px] text-gray-500 leading-relaxed">
-            ※ 이 대시보드는 관리자 전용입니다.
-            <br />
-            Oracle DB 기준으로 최근 7일 업로드 / 방문 수,
-            최근 30일 신규 가입 / 탈퇴 현황을 요약해 보여줍니다.
-          </p>
-        </footer>
+      
       </section>
     </div>
   );

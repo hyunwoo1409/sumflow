@@ -5,8 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useNavigate } from "react-router-dom";
-
+import { useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import UploadHome from "../components/UploadHome";
 import MyPage from "../pages/MyPage";
@@ -45,6 +44,17 @@ function inferDefaultTitle(filename) {
 
 export default function UploadPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const activeTab = useMemo(() => {
+    const p = location.pathname;
+    if (p.startsWith("/admin")) return "admin";
+    if (p.startsWith("/mypage")) return "mypage";
+    return "home";
+  }, [location.pathname]);
+
+  // Sidebar가 기대하는 setter 자리에 no-op 넣어서 에러 방지
+  const setActiveTab = () => {};
 
   //  로그인 상태
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -105,10 +115,6 @@ export default function UploadPage() {
   // input refs (파일 선택 / 폴더 선택)
   const inputRef = useRef(null);
   const dirInputRef = useRef(null);
-
-  // 좌측 사이드바 / 화면 탭 상태
-  // "home" | "mypage" | "admin"
-  const [activeTab, setActiveTab] = useState("home");
 
   // 마이페이지 쪽 필터링에서 쓰는 검색/카테고리 상태
   const [searchQuery, setSearchQuery] = useState("");
@@ -424,12 +430,6 @@ export default function UploadPage() {
     });
   }, [items, searchQuery, selectedCats]);
 
-  // 태그를 클릭하면 마이페이지 탭으로 전환하고 해당 태그 필터 활성화
-  const onItemTagClick = (tag) => {
-    setActiveTab("mypage");
-    toggleCat(tag);
-  };
-
   // ---------- 파일 input change 핸들러 연결 ----------
   useEffect(() => {
     const input = inputRef.current;
@@ -455,8 +455,6 @@ export default function UploadPage() {
     <div className="flex">
       {/* 사이드바 */}
       <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
         categories={allCategories}
         selectedCats={selectedCats}
         toggleCat={toggleCat}
@@ -472,13 +470,7 @@ export default function UploadPage() {
       <main className="flex-1 min-h-screen bg-[#f8fafc] p-6">
         {/* 상단 헤더 */}
         <header className="mb-6 flex flex-col gap-2">
-          <h1 className="text-xl font-semibold text-gray-900">
-            {activeTab === "home"
-              ? "문서 업로드"
-              : activeTab === "mypage"
-              ? "마이페이지"
-              : "관리자 페이지"}
-          </h1>
+          <h1 className="text-xl font-semibold text-gray-900">문서 업로드</h1>
 
           {activeTab === "home" && (
             <div className="text-sm text-gray-600 flex flex-wrap items-center gap-2">
@@ -525,19 +517,6 @@ export default function UploadPage() {
             dirInputRef={dirInputRef}
             acceptAttr={acceptAttr}
             onDownloadAllZip={handleDownloadAllZip}
-          />
-        )}
-
-        {activeTab === "mypage" && (
-          <MyPage
-            currentUser={JSON.parse(localStorage.getItem("user") || "{}")}
-            myItemsFromState={items.map((it) => ({
-              id: it.id,
-              filename: it.file?.name,
-              size: it.file?.size,
-              createdAt: Date.now(),
-              serverFileId: it?.result?.serverFileId,
-            }))}
           />
         )}
 

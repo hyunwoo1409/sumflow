@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getAdminFiles, softDeleteDocument } from "../utils/adminApi"; 
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 7;
 
 function ErrorModal({ open, onClose, title = "에러 상세", message = "" }) {
   if (!open) return null;

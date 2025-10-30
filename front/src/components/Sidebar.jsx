@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   Home,
   FolderOpen,
@@ -10,20 +10,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-/**
- * props
- * - activeTab: 'home' | 'mypage' | 'admin'
- * - setActiveTab(tab)
- * - categories: string[]
- * - selectedCats: Set<string>
- * - toggleCat(cat)
- * - collapsed: boolean
- * - setCollapsed(fn)
- * - isLoggedIn: boolean
- * - userNickname: string
- * - isAdmin: boolean | number | string   // 관리자면 1도 올 수 있음
- * - onLogout(): void                     // 부모 쪽에서 실제 로그아웃 처리+alert
- */
 export default function Sidebar({
   activeTab,
   setActiveTab,
@@ -151,50 +137,41 @@ export default function Sidebar({
       {/* 네비게이션 */}
       <nav className="grid gap-2">
         {/* 홈 */}
-        <button
-          onClick={() => {
-            setActiveTab("home");
-            navigate("/");
-          }}
-          className={`${navBtnBase} ${
-            activeTab === "home" ? navBtnActive : navBtnHover
-          }`}
-          title="홈"
-        >
-          <Home size={20} />
-          {!collapsed && <span>홈</span>}
-        </button>
+        <NavLink
+         to="/"
+         className={({ isActive }) =>
+           `${navBtnBase} ${isActive ? navBtnActive : navBtnHover}`
+         }
+         title="홈"
+       >
+         <Home size={20} />
+         {!collapsed && <span>홈</span>}
+       </NavLink>
 
         {/* 마이페이지 */}
-        <button
-          onClick={() => {
-            setActiveTab("mypage");
-            navigate("/");
-          }}
-          className={`${navBtnBase} ${
-            activeTab === "mypage" ? navBtnActive : navBtnHover
-          }`}
+        <NavLink
+          to="/mypage"
+          className={({ isActive }) =>
+            `${navBtnBase} ${isActive ? navBtnActive : navBtnHover}`
+          }
           title="마이페이지"
         >
           <FolderOpen size={20} />
           {!collapsed && <span>마이페이지</span>}
-        </button>
+        </NavLink>
 
         {/* 관리자 페이지 (관리자한테만 노출) */}
         {isAdminBool && (
-          <button
-            onClick={() => {
-              setActiveTab("admin");
-              navigate("/admin");
-            }}
-            className={`${navBtnBase} ${
-              activeTab === "admin" ? navBtnActive : navBtnHover
-            }`}
+        <NavLink
+          to="/admin"
+          className={({ isActive }) =>
+              `${navBtnBase} ${isActive ? navBtnActive : navBtnHover}`
+            }
             title="관리자 페이지"
           >
             <Settings size={20} />
             {!collapsed && <span>관리자 페이지</span>}
-          </button>
+        </NavLink>
         )}
       </nav>
 
@@ -213,13 +190,9 @@ export default function Sidebar({
             }`}
           >
             {pureCats.map((c) => (
-              <button
+              <NavLink
                 key={c}
-                onClick={() => {
-                  setActiveTab("mypage");
-                  toggleCat(c);
-                  navigate("/");
-                }}
+                to="/mypage"
                 title={c}
                 className={`rounded-lg border text-[11px] font-medium leading-none px-2 py-1
                   ${
@@ -235,7 +208,7 @@ export default function Sidebar({
                 `}
               >
                 {collapsed ? c.slice(0, 2) : c}
-              </button>
+              </NavLink>
             ))}
           </div>
         </div>

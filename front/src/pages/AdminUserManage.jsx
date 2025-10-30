@@ -47,6 +47,32 @@ export default function AdminUserManage() {
     return ""; // 전체
   };
 
+  // 상태 문자열 통일
+  const toDisplayStatus = (s) => {
+    if (!s) return "-";
+    const up = String(s).toUpperCase();
+    if (up === "ACTIVE" || s === "가입") return "가입";
+    if (up === "DELETED" || s === "탈퇴") return "탈퇴";
+    return s;
+  };
+
+  // 새로고침
+  const refreshStatsAndPage = useCallback(async () => {
+    try {
+      const statsRes = await getAdminStatsSummary();
+      setGlobalStats({
+        totalUsers: statsRes.totalUsers ?? 0,
+        activeUsers: statsRes.activeUsers ?? 0,
+        deletedUsers: statsRes.deletedUsers ?? 0,
+        newUsers30d: statsRes.newUsers30d ?? 0,
+      });
+      // 현재 필터/페이지 유지해서 다시 불러오기
+      await fetchPage(page);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [page, fetchPage]);
+
   useEffect(() => {
     async function init() {
       const statsRes = await getAdminStatsSummary(); 
@@ -155,28 +181,44 @@ export default function AdminUserManage() {
   // 탈퇴/복구 토글
   const handleToggleStatus = useCallback(async () => {
     if (!selectedUserId) return;
+
+    // 1) 현재 상태 파악(표시 문자열로 통일)
+    const prevDisplay = toDisplayStatus(selectedUser?.status);
+
     try {
       const res = await toggleUserActive(selectedUserId);
-      if (res && res.newStatus) {
-        // 모달 갱신
-        setSelectedUser((prev) =>
-          prev ? { ...prev, status: res.newStatus } : prev
-        );
 
-        // 현재 리스트에서도 반영
-        setPagedUsers((prev) =>
-          prev.map((u) =>
-            u.id === selectedUserId
-              ? { ...u, status: res.newStatus }
-              : u
-          )
-        );
-      }
+      // 2) 서버가 돌려준 새 상태(표시 문자열로 통일)
+      const nextDisplay = toDisplayStatus(res?.newStatus || (prevDisplay === "가입" ? "탈퇴" : "가입"));
+
+      // 3) 모달 선택 유저 즉시 갱신
+      setSelectedUser((prev) => (prev ? { ...prev, status: nextDisplay } : prev));
+
+      // 4) 현재 페이지 목록에서도 즉시 갱신
+      setPagedUsers((prev) =>
+        prev.map((u) =>
+          u.id === selectedUserId ? { ...u, status: nextDisplay } : u
+        )
+      );
+
+      setGlobalStats((g) => {
+        if (prevDisplay === nextDisplay) return g;
+        const deltaActive = prevDisplay === "가입" ? -1 : +1;
+        const deltaDeleted = prevDisplay === "가입" ? +1 : -1;
+        return {
+          ...g,
+          activeUsers: Math.max(0, (g.activeUsers ?? 0) + deltaActive),
+          deletedUsers: Math.max(0, (g.deletedUsers ?? 0) + deltaDeleted),
+        };
+      });
+
+      await refreshStatsAndPage();
+
     } catch (e) {
       console.error(e);
       alert("상태 변경에 실패했습니다.");
     }
-  }, [selectedUserId]);
+  }, [selectedUserId, selectedUser, refreshStatsAndPage]);
 
   // 좌/우 2열 쪼개기
   const leftCol = pagedUsers.slice(0, 10);

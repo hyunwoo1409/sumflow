@@ -1,7 +1,7 @@
 // ============================================
 //  마이페이지에서만 쓰는 API
 // ============================================
-import { absUrl, authHeaders } from "./http.js";
+import { absUrl, authHeaders,request } from "./http.js";
 
 // 프로필 조회
 export async function getMyProfile() {
@@ -92,4 +92,23 @@ export async function getMyDocuments({
     throw new Error(`내 문서 조회 실패 (${res.status}) ${msg}`);
   }
   return res.json(); // { success, total, page, pageSize, items: [...] }
+}
+
+////////////////////////////
+//          댓글          //
+///////////////////////////
+export async function listDocComments(documentId) {
+ return request(`/api/v1/documents/${encodeURIComponent(documentId)}/comments`, { method: "GET" });
+}
+
+export async function createDocComment(documentId, body) {
+ return request(`/api/v1/documents/${encodeURIComponent(documentId)}/comments`, {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({ body }),
+  });
+}
+
+export async function deleteDocComment(commentId) {
+  return request(`/api/v1/documents/comments/${encodeURIComponent(commentId)}`, { method: "DELETE" });
 }
