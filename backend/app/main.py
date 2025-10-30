@@ -287,6 +287,7 @@ from app.routers.admin_router import router as admin_router
 from app.routers.user_check_router import router as user_check_router
 from app.routers.email_verify_router import router as email_verify_router
 from app.routers.mypage_router import router as mypage_router
+from app.routers import comments
 
 app.include_router(captcha_router)
 app.include_router(signup_router)
@@ -295,3 +296,4 @@ app.include_router(admin_router)
 app.include_router(user_check_router)
 app.include_router(email_verify_router)
 app.include_router(mypage_router)
+app.include_router(comments.router)
