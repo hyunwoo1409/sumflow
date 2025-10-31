@@ -89,7 +89,6 @@ def signup_user(data: SignupRequest, db: Session = Depends(get_db)):
         BIRTH_DATE=birth_date,
         IS_ADMIN=data.is_admin or False,
         STATUS="ACTIVE",
-        IS_LOGGED_IN=False,
     )
 
     db.add(new_user)

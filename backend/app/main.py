@@ -347,6 +347,7 @@ from routers.user_check_router import router as user_check_router
 from routers.email_verify_router import router as email_verify_router
 from routers.mypage_router import router as mypage_router
 from routers import comments
+from routers import oauth_kakao
 
 app.include_router(captcha_router)
 app.include_router(signup_router)
@@ -356,3 +357,4 @@ app.include_router(user_check_router)
 app.include_router(email_verify_router)
 app.include_router(mypage_router)
 app.include_router(comments.router)
+app.include_router(oauth_kakao.router)
