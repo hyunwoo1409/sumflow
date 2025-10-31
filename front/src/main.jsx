@@ -8,6 +8,7 @@ import LoginPage from "./pages/LoginPage.jsx";
 import UploadPage from "./pages/UploadPage.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 import AdminPage from "./pages/AdminPage.jsx"; 
+import MyPage from "./pages/MyPage.jsx";
 
 createRoot(document.getElementById("root")).render(
   <BrowserRouter>
@@ -15,6 +16,7 @@ createRoot(document.getElementById("root")).render(
       <Route path="/" element={<UploadPage />} />
       <Route path="/member/login" element={<LoginPage />} />
       <Route path="/member/signup" element={<SignupPage />} />
+      <Route path="/mypage" element={<MyPage />} />
       <Route path="/admin" element={<AdminPage />} /> 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

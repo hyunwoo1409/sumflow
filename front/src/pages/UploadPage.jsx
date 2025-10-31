@@ -5,10 +5,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ocrFile } from "../services/api";
+import { useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import UploadHome from "../components/UploadHome";
-import MyPage from "../components/MyPage";
+import MyPage from "../pages/MyPage";
 
 import {
   extractFilesFromDataTransfer,
@@ -22,12 +22,14 @@ import {
   downloadAllResultsAsZip,
 } from "../utils/uploadHelpers";
 
-import { useNavigate } from "react-router-dom";
+import { ocrFile } from "../utils/http.js";
 
+// 파일명에서 확장자 제거
 function stem(name = "") {
   const i = name.lastIndexOf(".");
   return i > 0 ? name.slice(0, i) : name;
 }
+// 상대경로에서 top 폴더 추출 → 기본 카테고리
 function topFolderOf(relPath = "") {
   if (!relPath) return "";
   const parts = relPath.split("/").filter(Boolean);
@@ -41,52 +43,87 @@ function inferDefaultTitle(filename) {
 }
 
 export default function UploadPage() {
-
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // ✅ 로그인 상태 관리 추가
+  const activeTab = useMemo(() => {
+    const p = location.pathname;
+    if (p.startsWith("/admin")) return "admin";
+    if (p.startsWith("/mypage")) return "mypage";
+    return "home";
+  }, [location.pathname]);
+
+  // Sidebar가 기대하는 setter 자리에 no-op 넣어서 에러 방지
+  const setActiveTab = () => {};
+
+  //  로그인 상태
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [nickname, setNickname] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // ✅ localStorage에서 로그인 상태 복원
+  // 첫 로드 시 localStorage에서 로그인 정보 복원
   useEffect(() => {
     const token = localStorage.getItem("token");
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (token && user?.name) {
+
+    if (token && (user?.name || user?.nickname)) {
       setIsLoggedIn(true);
-      setNickname(user.name);
+      setNickname(user.nickname || user.name || "");
+
+      // 백에서 "1", 1, true, "true" 같은게 와도 전부 true로
+      const rawAdmin =
+        user.isAdmin ?? user.IS_ADMIN ?? user.is_admin ?? user.admin ?? 0;
+
+      const normalizedIsAdmin =
+        rawAdmin === 1 ||
+        rawAdmin === "1" ||
+        rawAdmin === true ||
+        rawAdmin === "true";
+
+      setIsAdmin(normalizedIsAdmin);
     } else {
       setIsLoggedIn(false);
       setNickname("");
+      setIsAdmin(false);
     }
   }, []);
 
-  // ✅ 로그아웃 로직 추가
+  // 로그아웃
   const handleLogout = () => {
+    // 토큰/유저 삭제
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+
+    // 상태 초기화
     setIsLoggedIn(false);
     setNickname("");
+
+    //  로그아웃 알림
+    alert("로그아웃 되었습니다.");
+
+    // 로그인 화면으로 이동
     navigate("/member/login");
   };
 
-  // 업로드 아이템 목록
-  const [items, setItems] = useState([]); // {id, file, status, progress, error, controller, result, categoryName, title}
+  // 업로드 대상 파일 상태
+  // {id, file, status, progress, error, controller, result, categoryName, title}
+  const [items, setItems] = useState([]);
 
-  // 드래그 오버 상태
+  // 드래그오버/하이라이트 상태
   const [dragOver, setDragOver] = useState(false);
 
-  // file input 레퍼런스
+  // input refs (파일 선택 / 폴더 선택)
   const inputRef = useRef(null);
   const dirInputRef = useRef(null);
 
-  // 페이지 상태
-  const [activeTab, setActiveTab] = useState("home"); // 'home' | 'mypage' | 'admin'
+  // 마이페이지 쪽 필터링에서 쓰는 검색/카테고리 상태
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCats, setSelectedCats] = useState(() => new Set());
+
+  // 사이드바 접힘 상태
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // 폴더 업로드 가능 설정
+  // ---------- 폴더 업로드 허용 (webkitdirectory 등) ----------
   useEffect(() => {
     const el = dirInputRef.current;
     if (el) {
@@ -98,34 +135,36 @@ export default function UploadPage() {
     }
   }, []);
 
-  // 허용 확장자 어트리뷰트
+  // ---------- 허용 확장자 accept="" 문자열 ----------
   const acceptAttr = useMemo(
     () => [...ACCEPT_EXT, "application/pdf"].join(","),
     []
   );
 
-  // 파일 검증
+  // ---------- 단일 파일 유효성 검사 ----------
   const validate = (file) => {
     const ext = "." + (file.name.split(".").pop() || "").toLowerCase();
-    if (!ACCEPT_EXT.includes(ext))
+    if (!ACCEPT_EXT.includes(ext)) {
       return `허용되지 않은 확장자 (${ext})`;
-    if (file.size > MAX_SIZE_MB * 1024 * 1024)
+    }
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
       return `파일이 너무 큽니다 (${prettyBytes(file.size)} > ${MAX_SIZE_MB} MB)`;
+    }
     return null;
   };
 
-  // 파일 목록에 추가
+  // ---------- 파일 목록에 추가 (zip 자동 풀기 포함) ----------
   const addFiles = useCallback(async (files) => {
     if (!files?.length) return;
-
     const arr = Array.from(files);
-    const expanded = [];
 
+    const expanded = [];
     for (const file of arr) {
       const lowerName = (file.name || "").toLowerCase();
       const ext = "." + (lowerName.split(".").pop() || "").toLowerCase();
 
       if (ext === ".zip") {
+        // ZIP이면 내부 문서를 펼쳐서 넣는다
         try {
           const innerFiles = await extractFromZip(file);
           expanded.push(...innerFiles);
@@ -138,6 +177,7 @@ export default function UploadPage() {
     }
 
     setItems((prev) => {
+      // 중복 방지용 키셋
       const seenPrev = new Set(
         prev.map((it) => {
           const f = it.file || {};
@@ -151,11 +191,16 @@ export default function UploadPage() {
       for (const file of expanded) {
         const rel = file.webkitRelativePath || file._relPath || "";
         const key = `${rel}::${file.name}:${file.size}:${file.lastModified || 0}`;
-        if (seenPrev.has(key)) continue;
+        if (seenPrev.has(key)) continue; // 이미 있음
 
         const ext = "." + (file.name.split(".").pop() || "").toLowerCase();
-        if (!ACCEPT_EXT.includes(ext)) continue;
+        if (!ACCEPT_EXT.includes(ext)) {
+          // 미지원 확장자면 그냥 무시 (또는 에러 항목으로 넣고 싶으면 여기서 push)
+          continue;
+        }
+
         if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+          // 너무 큰 파일은 error 상태로만 넣어줌
           toAdd.push({
             id: crypto.randomUUID(),
             file,
@@ -170,6 +215,7 @@ export default function UploadPage() {
           continue;
         }
 
+        // 정상 아이템
         toAdd.push({
           id: crypto.randomUUID(),
           file,
@@ -187,7 +233,7 @@ export default function UploadPage() {
     });
   }, []);
 
-  // 드래그&드롭 핸들링
+  // ---------- 드래그&드롭 영역에 파일 놓기 ----------
   const onDrop = async (e) => {
     e.preventDefault();
     setDragOver(false);
@@ -201,15 +247,17 @@ export default function UploadPage() {
     }
   };
 
-  // 일괄 업로드 시작
+  // ---------- 일괄 업로드 시작 ----------
   const onStartAll = useCallback(async () => {
     const queue = items
       .filter((it) => it.status === "idle")
       .map((it) => it.id);
     if (queue.length === 0) return;
-    let active = 0,
-      idx = 0,
-      MAX_CONCURRENCY = 10;
+
+    let active = 0;
+    let idx = 0;
+    const MAX_CONCURRENCY = 10;
+
     const kick = () => {
       while (active < MAX_CONCURRENCY && idx < queue.length) {
         const id = queue[idx++];
@@ -223,7 +271,7 @@ export default function UploadPage() {
     kick();
   }, [items]);
 
-  // 개별 업로드 시작
+  // ---------- 단일 파일 업로드 + OCR/LLM 파이프라인 호출 ----------
   const startUpload = useCallback(
     async (id) => {
       const cur = items.find((it) => it.id === id);
@@ -238,6 +286,7 @@ export default function UploadPage() {
             : it
         )
       );
+
       try {
         const ocrRes = await ocrFile({
           file: cur.file,
@@ -256,9 +305,12 @@ export default function UploadPage() {
 
         const serverFileId = extractServerFileId(ocrRes);
         const summary = ocrRes?.llmSummary || "";
+
+        // 태그(카테고리) 추출
         let tags = parseCategoriesFromSummary(summary);
-        if (tags.length === 0)
+        if (tags.length === 0) {
           tags = categorize(summary || JSON.stringify(ocrRes || {}));
+        }
 
         setItems((prev) =>
           prev.map((it) =>
@@ -291,7 +343,7 @@ export default function UploadPage() {
     [items]
   );
 
-  // 취소/삭제
+  // ---------- 업로드 취소 / 항목 삭제 ----------
   const onCancel = (id) => {
     const ctrl = items.find((it) => it.id === id)?.controller;
     if (ctrl) ctrl.abort();
@@ -303,28 +355,26 @@ export default function UploadPage() {
       )
     );
   };
-  const onRemove = (id) =>
+
+  const onRemove = (id) => {
     setItems((prev) => prev.filter((it) => it.id !== id));
+  };
 
-  // 총 용량 계산
-  const totalSizeStr = useMemo(
-    () =>
-      prettyBytes(
-        items.reduce((s, it) => s + (it.file?.size || 0), 0)
-      ),
-    [items]
-  );
+  // ---------- 전체 용량/파일 수, 완료 목록 ----------
+  const totalSizeStr = useMemo(() => {
+    return prettyBytes(
+      items.reduce((s, it) => s + (it.file?.size || 0), 0)
+    );
+  }, [items]);
 
-  // 총 파일 계산
   const totalFileCount = useMemo(() => items.length, [items]);
 
-  // 업로드 완료 항목
   const doneItems = useMemo(
     () => items.filter((it) => it.status === "done" && it.result),
     [items]
   );
 
-  // ZIP 다운로드
+  // 전체 결과 ZIP으로 다운로드
   const handleDownloadAllZip = async () => {
     if (doneItems.length === 0) {
       alert("완료된 문서가 없습니다.");
@@ -333,7 +383,7 @@ export default function UploadPage() {
     await downloadAllResultsAsZip(doneItems);
   };
 
-  // 카테고리 전체 목록
+  // ---------- 카테고리 칩 목록(사이드바) ----------
   const allCategories = useMemo(() => {
     const s = new Set();
     for (const it of items) {
@@ -344,25 +394,30 @@ export default function UploadPage() {
     return Array.from(s).sort();
   }, [items]);
 
-  const toggleCat = (cat) =>
+  const toggleCat = (cat) => {
     setSelectedCats((prev) => {
       const n = new Set(prev);
       n.has(cat) ? n.delete(cat) : n.add(cat);
       return n;
     });
+  };
 
+  // (마이페이지 내에서 쓸 필터/검색용)
   const normalized = (v) => String(v || "").toLowerCase();
-
   const filteredItems = useMemo(() => {
     const q = normalized(searchQuery);
     const need = Array.from(selectedCats);
+
     return items.filter((it) => {
-      const tags = [
-        ...(it?.result?.tags || []),
-        it.categoryName,
-      ].filter(Boolean);
+      const tags = [...(it?.result?.tags || []), it.categoryName].filter(
+        Boolean
+      );
+
+      // 선택된 카테고리를 모두 포함?
       if (!need.every((c) => tags.includes(c))) return false;
+
       if (!q) return true;
+
       const hay = [
         it.file?.name || "",
         it?.result?.summary || "",
@@ -375,11 +430,7 @@ export default function UploadPage() {
     });
   }, [items, searchQuery, selectedCats]);
 
-  const onItemTagClick = (tag) => {
-    setActiveTab("mypage");
-    toggleCat(tag);
-  };
-
+  // ---------- 파일 input change 핸들러 연결 ----------
   useEffect(() => {
     const input = inputRef.current;
     const dir = dirInputRef.current;
@@ -399,35 +450,32 @@ export default function UploadPage() {
     };
   }, [addFiles]);
 
-  // ✅ Sidebar에 로그인 상태 반영
+  // ---------- 렌더 ----------
   return (
     <div className="flex">
+      {/* 사이드바 */}
       <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
         categories={allCategories}
         selectedCats={selectedCats}
         toggleCat={toggleCat}
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
         isLoggedIn={isLoggedIn}
-        userNickname={nickname}
+        userNickname={nickname || "사용자"}
+        isAdmin={isAdmin}
         onLogout={handleLogout}
       />
 
+      {/* 메인 영역 */}
       <main className="flex-1 min-h-screen bg-[#f8fafc] p-6">
+        {/* 상단 헤더 */}
         <header className="mb-6 flex flex-col gap-2">
-          <h1 className="text-xl font-semibold text-gray-900">
-            {activeTab === "home"
-              ? "문서 업로드"
-              : activeTab === "mypage"
-              ? "마이페이지"
-              : "관리자 페이지"}
-          </h1>
+          <h1 className="text-xl font-semibold text-gray-900">문서 업로드</h1>
 
           {activeTab === "home" && (
             <div className="text-sm text-gray-600 flex flex-wrap items-center gap-2">
               <span className="text-gray-500">허용 확장자:</span>
+
               <span className="inline-flex items-center rounded-md bg-gray-100 text-gray-800 text-[11px] font-medium px-2 py-0.5">
                 pdf
               </span>
@@ -454,6 +502,7 @@ export default function UploadPage() {
           )}
         </header>
 
+        {/* 탭 본문 */}
         {activeTab === "home" && (
           <UploadHome
             items={items}
@@ -468,24 +517,6 @@ export default function UploadPage() {
             dirInputRef={dirInputRef}
             acceptAttr={acceptAttr}
             onDownloadAllZip={handleDownloadAllZip}
-          />
-        )}
-
-        {activeTab === "mypage" && (
-          <MyPage
-            currentUser={{
-              nickname: nickname || "사용자",
-              phone: "010-0000-0000",
-              email: "email@abc.com",
-              isAdmin: "True",
-            }}
-            myItemsFromState={items.map(it => ({
-              id: it.id,
-              filename: it.file?.name,
-              size: it.file?.size,
-              createdAt: Date.now(),
-              serverFileId: it?.result?.serverFileId,
-            }))}
           />
         )}
 
