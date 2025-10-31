@@ -402,7 +402,7 @@ export default function SignupPage() {
       if (!res.ok) throw new Error(data.detail || "회원가입 실패");
 
       alert("회원가입이 완료되었습니다!");
-      navigate("/login");
+      navigate("/member/login");
     } catch (err) {
       alert(err.message || "회원가입 중 오류가 발생했습니다.");
       fetchCaptcha();
