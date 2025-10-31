@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
-from app.core.db import get_db
-from app.models.user_model import AppUser
-from app.services.capcha import captcha_store
-from app.services.email_verify import assert_email_verified  
+from core.db import get_db
+from models.user_model import AppUser
+from services.capcha import captcha_store
+from services.email_verify import assert_email_verified  
 import time, bcrypt
 from datetime import datetime
 

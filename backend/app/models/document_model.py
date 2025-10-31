@@ -11,7 +11,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.mysql import DATETIME, BIGINT
 from sqlalchemy.orm import relationship
-from app.core.db import Base
+from core.db import Base
 
 class Document(Base):
     __tablename__ = "DOCUMENT"

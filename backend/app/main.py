@@ -1,13 +1,14 @@
 # main.py
-import os, io, uuid, zipfile
+import os, io, uuid, zipfile, jwt
 import logging, traceback
 from typing import List
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from pathlib import Path
 import json, time, re, unicodedata
+from sqlalchemy import text
 
 # ✅ .env 자동 로드
 from dotenv import load_dotenv
@@ -16,10 +17,14 @@ load_dotenv()
 # ✅ 비동기 친화: 동기 함수 워커 스레드로
 import anyio
 
-from app.services.ocr import ocr_funnel_extract, batch_ocr_zip
-from app.services.llm import summarize_and_categorize
-from app.utils.version import get_version
-from app.utils.telemetry import Telemetry, PerfRecorder
+from services.ocr import ocr_funnel_extract, batch_ocr_zip
+from services.llm import summarize_and_categorize
+from utils.version import get_version
+from utils.telemetry import Telemetry, PerfRecorder
+from core.db import SessionLocal
+from core.security import decode_access_token
+from models.visitlog_model import VisitLog
+from models.user_model import AppUser
 
 
 logging.basicConfig(
@@ -33,6 +38,56 @@ APP_NAME = "ocr-llm-suite"
 SESS_ROOT = "tmp/sessions"
 
 app = FastAPI(title=APP_NAME)
+
+@app.middleware("http")
+async def _visit_logger(request: Request, call_next):
+    path = request.url.path
+    path_norm = (path.rstrip("/") or "/")
+    # 내부 문서/스키마는 제외
+    if path.startswith("/docs") or path.startswith("/redoc") or path.startswith("/openapi"):
+        return await call_next(request)
+
+    # GET/HEAD만 방문 로그 (필요시 POST 포함 가능)
+    if request.method in ("GET", "HEAD"):
+        db = SessionLocal()
+        try:
+            # 토큰에서 user_id 추출 (+ sub=LOGIN_ID fallback)
+            user_id = None
+            auth = request.headers.get("Authorization", "")
+            if auth.startswith("Bearer "):
+                token = auth.split(" ", 1)[1]
+                secret = os.getenv("JWT_SECRET", "mysecretkey")  # ← login.py의 기본값과 동일하게
+                try:
+                    payload = jwt.decode(token, secret, algorithms=["HS256"])
+                    user_id = payload.get("user_id")
+                    if not user_id and payload.get("sub"):
+                        login_id = payload["sub"]
+                        u = db.query(AppUser).filter(AppUser.LOGIN_ID == login_id).first()
+                        if u:
+                            user_id = u.USER_ID
+                except Exception:
+                    user_id = None
+                if user_id:
+                    db.execute(
+                        text("""
+                            INSERT INTO VISIT_LOG (USER_ID)
+                            SELECT :uid
+                            WHERE NOT EXISTS (
+                                SELECT 1
+                                FROM VISIT_LOG
+                                WHERE USER_ID = :uid
+                                AND DATE(VISITED_AT) = CURRENT_DATE
+                            )
+                        """),
+                        {"uid": user_id},
+                    )
+            db.commit()
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
+
+    return await call_next(request)
 
 # === 원본 저장소 유틸 ===
 STORE_DIR = Path("tmp/ocr_store")
@@ -279,15 +334,19 @@ async def finalize_session(sid: str, is_zip: bool = Form(True)):
         })
         return {"doc_id": doc_id, "pages": pages, "summary": summary}
     
+@app.post("/api/v1/logout")
+def logout_alias(token_data: dict = Depends(decode_access_token)):
+    return {"success": True}    
+    
 
-from app.services.capcha import router as captcha_router   
-from app.services.signup import router as signup_router
-from app.services.login import router as login_router
-from app.routers.admin_router import router as admin_router
-from app.routers.user_check_router import router as user_check_router
-from app.routers.email_verify_router import router as email_verify_router
-from app.routers.mypage_router import router as mypage_router
-from app.routers import comments
+from services.capcha import router as captcha_router   
+from services.signup import router as signup_router
+from services.login import router as login_router
+from routers.admin_router import router as admin_router
+from routers.user_check_router import router as user_check_router
+from routers.email_verify_router import router as email_verify_router
+from routers.mypage_router import router as mypage_router
+from routers import comments
 
 app.include_router(captcha_router)
 app.include_router(signup_router)

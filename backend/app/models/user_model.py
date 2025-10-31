@@ -1,7 +1,7 @@
 # backend/user/models.py
 from sqlalchemy import Column, String, BigInteger, Boolean, DateTime, Date, func
 from sqlalchemy.orm import declarative_base, relationship
-from app.core.db import Base
+from core.db import Base
 
 class AppUser(Base):
     """
@@ -22,7 +22,6 @@ class AppUser(Base):
     BIRTH_DATE = Column(Date, nullable=True, comment="생년월일")
     IS_ADMIN = Column(Boolean, nullable=False, server_default="0", comment="관리자 여부")
     STATUS = Column(String(20), nullable=False, server_default="ACTIVE", comment="계정 상태")
-    IS_LOGGED_IN = Column(Boolean, nullable=False, server_default="0", comment="현재 로그인 여부")
     LAST_LOGIN_AT = Column(DateTime, nullable=True, comment="마지막 로그인 시각")
     CREATED_AT = Column(DateTime,nullable=False,server_default=func.current_timestamp(),comment="생성 일시",)
     UPDATED_AT = Column(DateTime,nullable=False,server_default=func.current_timestamp(),onupdate=func.current_timestamp(),comment="수정 일시",)

@@ -5,7 +5,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
 )
-from app.core.db import Base  # 이미 user_model.py 등에서 쓰는 Base와 동일하게 맞춰
+from core.db import Base  # 이미 user_model.py 등에서 쓰는 Base와 동일하게 맞춰
 
 class EmailVerification(Base):
     __tablename__ = "EMAIL_VERIFICATION"

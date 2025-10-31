@@ -2,10 +2,10 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import func, case, and_
 
-from ..models.user_model import AppUser
-from ..models.document_model import Document
-from ..models.visitlog_model import VisitLog
-from ..schemas.admin_schema import AdminStatsSummary, DailyUploadStat, DailyVisitStat
+from models.user_model import AppUser
+from models.document_model import Document
+from models.visitlog_model import VisitLog
+from schemas.admin_schema import AdminStatsSummary, DailyUploadStat, DailyVisitStat
 
 def get_admin_stats_summary(db: Session) -> AdminStatsSummary:
     now = datetime.now()
@@ -53,7 +53,6 @@ def get_admin_stats_summary(db: Session) -> AdminStatsSummary:
         .order_by(func.min(Document.created_at))
         .all()
     )
-    # upload_rows = [("10/22", 54), ...]
     day_to_uploads = {row.day: row.uploads for row in upload_rows}
 
     # -------------------------
@@ -69,12 +68,10 @@ def get_admin_stats_summary(db: Session) -> AdminStatsSummary:
         .order_by(func.min(VisitLog.created_at))
         .all()
     )
-    # visit_rows = [("10/22", 190), ...]
     day_to_visits = {row.day: row.visits for row in visit_rows}
 
     # -------------------------
     # 7일치 라벨을 무조건 만들어서 비어 있는 날도 0으로 채워주자
-    # ex: ["10/22","10/23",...,"10/28"]
     # -------------------------
     days_7 = []
     for i in range(7):

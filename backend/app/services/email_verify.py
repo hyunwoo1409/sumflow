@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-from app.models.email_verification_model import EmailVerification
-from app.models.user_model import AppUser
+from models.email_verification_model import EmailVerification
+from models.user_model import AppUser
 
 # 이메일 인증 발송
 import smtplib
