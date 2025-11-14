@@ -1,0 +1,89 @@
+# ---- OS / 에디터 공통 ----
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*.swo
+*.bak
+
+.idea/
+.vscode/
+*.code-workspace
+
+# ---- 환경 변수 / 시크릿 ----
+.env
+.env.*
+*.env
+.envrc
+
+# ---- Python / FastAPI (backend) ----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 패키지/빌드 아티팩트
+*.egg-info/
+.eggs/
+dist/
+build/
+htmlcov/
+.tox/
+.mypy_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+.cache/
+
+# 가상환경
+venv/
+.venv/
+env/
+ENV/
+ocrenv/
+backend/ocrenv/
+
+# ---- Node / React / Vite (frontend) ----
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite / 빌드 결과
+dist/
+.front/dist/
+front/dist/
+.vite/
+front/.vite/
+
+# TypeScript 캐시 (혹시 사용 시)
+*.tsbuildinfo
+
+# ---- 프로젝트 런타임 디렉토리 (업로드/결과 등) ----
+# 업로드/결과 파일은 전부 Git 제외
+uploads/
+backend/app/uploads/
+backend/app/ocr_store/
+backend/app/ocr_store/uploads/
+backend/app/ocr_cache/
+backend/app/tmp/
+backend/app/results/
+backend/app/outputs/
+
+# 로그/덤프
+logs/
+*.sql
+*.db
+*.sqlite
+*.sqlite3
+
+# 압축/바이너리 아티팩트
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+*.exe
+*.dll
+*.pdb
