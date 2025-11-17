@@ -1,4 +1,4 @@
-# sumflow# SumFlow – 문서 요약 · 검색 웹 서비스
+# SumFlow – 문서 요약 · 검색 웹 서비스
 
 PDF / HWP / Office 문서를 업로드하면 **OCR + LLM 요약**을 수행하고, 결과와 메타데이터를 **검색·관리**할 수 있는 웹 서비스입니다.  
 백엔드는 **FastAPI + Celery + Redis + MySQL + Tesseract + Ollama**, 프론트는 **React + Vite + Tailwind** 기반으로 구성되어 있습니다.
